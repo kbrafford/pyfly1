@@ -1,6 +1,7 @@
 cdef extern from "PGRFlyCapture.h":
     ctypedef void* FlyCaptureContext
     ctypedef unsigned long FlyCaptureCameraSerialNumber
+    ctypedef void FlyCaptureCallback( void* pParam, int iMessage, unsigned long ulParam )
 
     ctypedef enum FlyCaptureError:
         FLYCAPTURE_OK
@@ -31,7 +32,7 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_DEPRECATED
         FLYCAPTURE_BUFFER_SIZE_TOO_SMALL
 
-  ctypedef enum FlyCaptureProperty:
+    ctypedef enum FlyCaptureProperty:
         FLYCAPTURE_BRIGHTNESS
         FLYCAPTURE_AUTO_EXPOSURE
         FLYCAPTURE_SHARPNESS
@@ -52,13 +53,13 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_TEMPERATURE
 
 
-  ctypedef enum FlyCaptureBusEvent:
+    ctypedef enum FlyCaptureBusEvent:
         FLYCAPTURE_MESSAGE_BUS_RESET = 0x02
         FLYCAPTURE_MESSAGE_DEVICE_ARRIVAL,
         FLYCAPTURE_MESSAGE_DEVICE_REMOVAL
 
 
-  ctypedef enum FlyCaptureFrameRate:
+    ctypedef enum FlyCaptureFrameRate:
         FLYCAPTURE_FRAMERATE_1_875
         FLYCAPTURE_FRAMERATE_3_75
         FLYCAPTURE_FRAMERATE_7_5
@@ -72,7 +73,7 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_FRAMERATE_CUSTOM
         FLYCAPTURE_FRAMERATE_ANY
 
-  ctypedef enum FlyCaptureVideoMode:
+    ctypedef enum FlyCaptureVideoMode:
         FLYCAPTURE_VIDEOMODE_160x120YUV444 = 0
         FLYCAPTURE_VIDEOMODE_320x240YUV422 = 1
         FLYCAPTURE_VIDEOMODE_640x480YUV411 = 2
@@ -100,7 +101,7 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_VIDEOMODE_ANY   = 16
         FLYCAPTURE_NUM_VIDEOMODES  = 23
 
-  ctypedef enum FlyCaptureCameraModel:
+    ctypedef enum FlyCaptureCameraModel:
         FLYCAPTURE_FIREFLY
         FLYCAPTURE_DRAGONFLY
         FLYCAPTURE_AIM
@@ -119,11 +120,11 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_UNKNOWN = -1
         FCCM_FORCE_QUADLET   = 0x7FFFFFFF
 
-  ctypedef enum FlyCaptureCameraType:
+    ctypedef enum FlyCaptureCameraType:
         FLYCAPTURE_BLACK_AND_WHITE,
         FLYCAPTURE_COLOR
 
-  ctypedef enum FlyCaptureBusSpeed:
+    ctypedef enum FlyCaptureBusSpeed:
         FLYCAPTURE_S100
         FLYCAPTURE_S200
         FLYCAPTURE_S400
@@ -136,7 +137,7 @@ cdef extern from "PGRFlyCapture.h":
         FLYCAPTURE_SPEED_UNKNOWN = -1
         FLYCAPTURE_SPEED_FORCE_QUADLET   = 0x7FFFFFFF
 
-  ctypedef struct FlyCaptureInfoEx:
+    ctypedef struct FlyCaptureInfoEx:
         FlyCaptureCameraSerialNumber   SerialNumber
         FlyCaptureCameraType CameraType
         FlyCaptureCameraModel    CameraModel
@@ -210,14 +211,14 @@ cdef extern from "PGRFlyCapture.h":
         FlyCaptureVideoMode   videoMode
         FlyCaptureTimestamp   timeStamp
         unsigned char*  pData
-        boolbStippled
+        bint bStippled
         FlyCapturePixelFormat pixelFormat
         int iNumImages
         unsigned long   ulReserved[ 5 ]
 
     FlyCaptureError flycaptureBusCameraCount( unsigned int* puiCount )
     FlyCaptureError flycaptureBusEnumerateCamerasEx( FlyCaptureInfoEx*  arInfo, unsigned int* puiSize )
-    FlyCaptureError flycaptureModifyCallback(FlyCaptureContext context, FlyCaptureCallback* pfnCallback, void* pParam, bool bAdd )
+    FlyCaptureError flycaptureModifyCallback(FlyCaptureContext context, FlyCaptureCallback* pfnCallback, void* pParam, bint bAdd )
     FlyCaptureError flycaptureCreateContext(FlyCaptureContext* pContext )
     FlyCaptureError flycaptureDestroyContext(FlyCaptureContext context )
     FlyCaptureError flycaptureInitialize(FlyCaptureContext context, unsigned long ulDevice )
@@ -229,7 +230,7 @@ cdef extern from "PGRFlyCapture.h":
     int flycaptureGetLibraryVersion()
     char* flycaptureErrorToString(FlyCaptureError error )
     char* flycaptureRegisterToString( unsigned long ulRegister  )
-    FlyCaptureError flycaptureCheckVideoMode(FlyCaptureContext   context,FlyCaptureVideoMode videoMode,FlyCaptureFrameRate frameRate,bool* pbSupported )
+    FlyCaptureError flycaptureCheckVideoMode(FlyCaptureContext   context,FlyCaptureVideoMode videoMode,FlyCaptureFrameRate frameRate,bint* pbSupported )
     FlyCaptureError flycaptureGetCurrentVideoMode(FlyCaptureContext    context,FlyCaptureVideoMode* pVideoMode,FlyCaptureFrameRate* pFrameRate )
     FlyCaptureError flycaptureGetCurrentCustomImage(FlyCaptureContext context,unsigned int* puiMode,unsigned int* puiImagePosLeft,unsigned int* puiImagePosTop,unsigned int* puiWidth,unsigned int* puiHeight,unsigned int* puiPacketSizeBytes,float* pfSpeed, FlyCapturePixelFormat* pPixelFormat )
     FlyCaptureError flycaptureGetColorProcessingMethod( FlyCaptureContext  context, FlyCaptureColorMethod*   pMethod )
@@ -237,32 +238,32 @@ cdef extern from "PGRFlyCapture.h":
     FlyCaptureError flycaptureGetColorTileFormat(   FlyCaptureContext   context,   FlyCaptureStippledFormat*  pformat )
     FlyCaptureError flycaptureSetColorTileFormat(  FlyCaptureContext  context,  FlyCaptureStippledFormat format )
     FlyCaptureError flycaptureStart(  FlyCaptureContext   context,  FlyCaptureVideoMode videoMode,  FlyCaptureFrameRate frameRate )
-    FlyCaptureError flycaptureQueryCustomImage(FlyCaptureContext context,unsigned intuiMode,bool* pbAvailable,unsigned int* puiMaxImagePixelsWidth,unsigned int* puiMaxImagePixelsHeight,unsigned int* puiPixelUnitHorz,unsigned int* puiPixelUnitVert, unsigned int* puiPixelFormats )
-    FlyCaptureError flycaptureQueryCustomImageEx(FlyCaptureContext context,unsigned intuiMode,bool* pbAvailable,unsigned int* puiMaxImagePixelsWidth,unsigned int* puiMaxImagePixelsHeight,unsigned int* puiPixelUnitHorz,unsigned int* puiPixelUnitVert, unsigned int* puiOffsetUnitHorz, unsigned int* puiOffsetUnitVert, unsigned int* puiPixelFormats )
+    FlyCaptureError flycaptureQueryCustomImage(FlyCaptureContext context,unsigned intuiMode,bint* pbAvailable,unsigned int* puiMaxImagePixelsWidth,unsigned int* puiMaxImagePixelsHeight,unsigned int* puiPixelUnitHorz,unsigned int* puiPixelUnitVert, unsigned int* puiPixelFormats )
+    FlyCaptureError flycaptureQueryCustomImageEx(FlyCaptureContext context,unsigned intuiMode,bint* pbAvailable,unsigned int* puiMaxImagePixelsWidth,unsigned int* puiMaxImagePixelsHeight,unsigned int* puiPixelUnitHorz,unsigned int* puiPixelUnitVert, unsigned int* puiOffsetUnitHorz, unsigned int* puiOffsetUnitVert, unsigned int* puiPixelFormats )
     FlyCaptureError flycaptureStartCustomImage(FlyCaptureContext context,unsigned intuiMode,unsigned intuiImagePosLeft,unsigned intuiImagePosTop,unsigned intuiWidth,unsigned intuiHeight,float fBandwidth, FlyCapturePixelFormat   format )
     FlyCaptureError flycaptureStop(  FlyCaptureContext context )
     FlyCaptureError flycaptureSetGrabTimeoutEx( FlyCaptureContext context, unsigned long ulTimeout )
     FlyCaptureError flycaptureGrabImage(FlyCaptureContext   context,unsigned char**   ppImageBuffer,int*    piRows,int*    piCols,int*    piRowInc,FlyCaptureVideoMode*  pVideoMode )
     FlyCaptureError flycaptureGrabImage2( FlyCaptureContext   context, FlyCaptureImage*   pimage )
-    FlyCaptureError flycaptureSaveImage(  FlyCaptureContext context,  const FlyCaptureImage*pImage,  const char* pszPath,  FlyCaptureImageFileFormat   format)
+    FlyCaptureError flycaptureSaveImage(  FlyCaptureContext context,   FlyCaptureImage *pImage,   char* pszPath,  FlyCaptureImageFileFormat   format)
     FlyCaptureError flycaptureSetJPEGCompressionQuality(  FlyCaptureContext context,  int    iQuality)
-    FlyCaptureError flycaptureConvertImage(   FlyCaptureContext  context,   const FlyCaptureImage*   pimageSrc,   FlyCaptureImage*   pimageDest )
+    FlyCaptureError flycaptureConvertImage(   FlyCaptureContext  context,    FlyCaptureImage*   pimageSrc,   FlyCaptureImage*   pimageDest )
     FlyCaptureError flycaptureInplaceRGB24toBGR24(    unsigned char* pImageBuffer,    intiImagePixels )
     FlyCaptureError flycaptureInplaceWhiteBalance(   FlyCaptureContext context,   unsigned char* pData,   int iRows,   int iCols )
-    FlyCaptureError flycaptureGetCameraPropertyRange( FlyCaptureContext  context, FlyCaptureProperty cameraProperty, bool*  pbPresent, long*  plMin, long*  plMax, long*  plDefault, bool*  pbAuto, bool*pbManual )
-    FlyCaptureError flycaptureGetCameraProperty( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, long*   plValueA, long*   plValueB, bool*   pbAuto )
-    FlyCaptureError flycaptureSetCameraProperty( FlyCaptureContext  context, FlyCaptureProperty cameraProperty, long   lValueA, long   lValueB,bool   bAuto )
-    FlyCaptureError flycaptureSetCameraPropertyBroadcast(   FlyCaptureContext  context,   FlyCaptureProperty cameraProperty,   long   lValueA,   long   lValueB,   bool   bAuto )
-    FlyCaptureError flycaptureGetCameraPropertyRangeEx(   FlyCaptureContext    context,   FlyCaptureProperty   cameraProperty,   bool*    pbPresent,   bool*    pbOnePush,   bool*    pbReadOut,   bool*    pbOnOff,   bool*    pbAuto,   bool*  pbManual,   int* piMin,   int* piMax )
-    FlyCaptureError flycaptureGetCameraPropertyEx(    FlyCaptureContext   context,    FlyCaptureProperty  cameraProperty,    bool*   pbOnePush,    bool*   pbOnOff,    bool*   pbAuto,    int*    piValueA,    int*    piValueB )
-    FlyCaptureError flycaptureSetCameraPropertyEx(    FlyCaptureContext    context,    FlyCaptureProperty   cameraProperty,    bool bOnePush,    bool bOnOff,    bool bAuto,    intiValueA,    intiValueB )
-    FlyCaptureError flycaptureSetCameraPropertyBroadcastEx( FlyCaptureContext    context, FlyCaptureProperty   cameraProperty, bool bOnePush, bool bOnOff, bool bAuto, intiValueA, intiValueB )
-    FlyCaptureError flycaptureGetCameraAbsPropertyRange(  FlyCaptureContext  context,  FlyCaptureProperty cameraProperty,  bool*  pbPresent,  float* pfMin,  float* pfMax,  const char** ppszUnits,  const char** ppszUnitAbbr )
+    FlyCaptureError flycaptureGetCameraPropertyRange( FlyCaptureContext  context, FlyCaptureProperty cameraProperty, bint*  pbPresent, long*  plMin, long*  plMax, long*  plDefault, bint*  pbAuto, bint*pbManual )
+    FlyCaptureError flycaptureGetCameraProperty( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, long*   plValueA, long*   plValueB, bint*   pbAuto )
+    FlyCaptureError flycaptureSetCameraProperty( FlyCaptureContext  context, FlyCaptureProperty cameraProperty, long   lValueA, long   lValueB,bint   bAuto )
+    FlyCaptureError flycaptureSetCameraPropertyBroadcast(   FlyCaptureContext  context,   FlyCaptureProperty cameraProperty,   long   lValueA,   long   lValueB,   bint   bAuto )
+    FlyCaptureError flycaptureGetCameraPropertyRangeEx(   FlyCaptureContext    context,   FlyCaptureProperty   cameraProperty,   bint*    pbPresent,   bint*    pbOnePush,   bint*    pbReadOut,   bint*    pbOnOff,   bint*    pbAuto,   bint*  pbManual,   int* piMin,   int* piMax )
+    FlyCaptureError flycaptureGetCameraPropertyEx(    FlyCaptureContext   context,    FlyCaptureProperty  cameraProperty,    bint*   pbOnePush,    bint*   pbOnOff,    bint*   pbAuto,    int*    piValueA,    int*    piValueB )
+    FlyCaptureError flycaptureSetCameraPropertyEx(    FlyCaptureContext    context,    FlyCaptureProperty   cameraProperty,    bint bOnePush,    bint bOnOff,    bint bAuto,    intiValueA,    intiValueB )
+    FlyCaptureError flycaptureSetCameraPropertyBroadcastEx( FlyCaptureContext    context, FlyCaptureProperty   cameraProperty, bint bOnePush, bint bOnOff, bint bAuto, intiValueA, intiValueB )
+    FlyCaptureError flycaptureGetCameraAbsPropertyRange(  FlyCaptureContext  context,  FlyCaptureProperty cameraProperty,  bint*  pbPresent,  float* pfMin,  float* pfMax,   char** ppszUnits,   char** ppszUnitAbbr )
     FlyCaptureError flycaptureGetCameraAbsProperty( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, float*  pfValue )
-    FlyCaptureError flycaptureGetCameraAbsPropertyEx( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, bool*   pbOnePush, bool*   pbOnOff, bool*   pbAuto, float*  pfValue )
+    FlyCaptureError flycaptureGetCameraAbsPropertyEx( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, bint*   pbOnePush, bint*   pbOnOff, bint*   pbAuto, float*  pfValue )
     FlyCaptureError flycaptureSetCameraAbsProperty(    FlyCaptureContext  context,    FlyCaptureProperty cameraProperty,    float  fValue )
-    FlyCaptureError flycaptureSetCameraAbsPropertyEx(    FlyCaptureContext  context,    FlyCaptureProperty cameraProperty, bool   bOnePush, bool   bOnOff, bool   bAuto,    float  fValue )
-    FlyCaptureError flycaptureSetCameraAbsPropertyBroadcastEx(    FlyCaptureContext  context,    FlyCaptureProperty cameraProperty, bool   bOnePush, bool   bOnOff, bool   bAuto,    float  fValue )
+    FlyCaptureError flycaptureSetCameraAbsPropertyEx(    FlyCaptureContext  context,    FlyCaptureProperty cameraProperty, bint   bOnePush, bint   bOnOff, bint   bAuto,    float  fValue )
+    FlyCaptureError flycaptureSetCameraAbsPropertyBroadcastEx(    FlyCaptureContext  context,    FlyCaptureProperty cameraProperty, bint   bOnePush, bint   bOnOff, bint   bAuto,    float  fValue )
     FlyCaptureError flycaptureSetCameraAbsPropertyBroadcast(  FlyCaptureContext  context,  FlyCaptureProperty cameraProperty,  float  fValue )
     FlyCaptureError flycaptureGetCameraRegister( FlyCaptureContext context, unsigned long ulRegister, unsigned long*    pulValue )
     FlyCaptureError flycaptureSetCameraRegister( FlyCaptureContext context, unsigned long ulRegister, unsigned long ulValue )
@@ -273,17 +274,177 @@ cdef extern from "PGRFlyCapture.h":
     FlyCaptureError flycaptureGetCameraTrigger(FlyCaptureContext context,unsigned int* puiPresence,unsigned int* puiOnOff,unsigned int* puiPolarity,unsigned int* puiTriggerMode )
     FlyCaptureError flycaptureSetCameraTrigger(FlyCaptureContext context,unsigned intuiOnOff,unsigned intuiPolarity,unsigned intuiTriggerMode )
     FlyCaptureError flycaptureSetCameraTriggerBroadcast(  FlyCaptureContext context,  unsigned char ucOnOff,  unsigned char ucPolarity,  unsigned char ucTriggerMode )
-    FlyCaptureError flycaptureQueryTrigger(   FlyCaptureContext  context,   bool*  pbPresent,   bool*  pbReadOut,   bool*  pbOnOff,   bool*  pbPolarity,   bool*  pbValueRead,   unsigned int*puiSourceMask,   bool*  pbSoftwareTrigger,   unsigned int*puiModeMask )
-    FlyCaptureError flycaptureGetTrigger( FlyCaptureContext context, bool* pbOnOff, int*  piPolarity, int*  piSource, int*  piRawValue, int*  piMode, int*  piParameter )
-    FlyCaptureError flycaptureSetTrigger(FlyCaptureContext context, bool  bOnOff, int   iPolarity, int   iSource, int   iMode, int   iParameter )
-    FlyCaptureError flycaptureSetTriggerBroadcast(    FlyCaptureContext context,    bool  bOnOff,    int   iPolarity,    int   iSource,    int   iMode,    int   iParameter )
-    FlyCaptureError flycaptureGetStrobe(  FlyCaptureContext context,  int   iSource,  bool* pbOnOff,  bool* pbPolarityActiveLow,  int*  piDelay,  int*  piDuration )
-    FlyCaptureError flycaptureSetStrobe(  FlyCaptureContext context,  int   iSource,  bool  bOnOff,  bool  bPolarityActiveLow,  int   iDelay,  int   iDuration )
-    FlyCaptureError flycaptureSetStrobeBroadcast(  FlyCaptureContext context,  int   iSource,  bool  bOnOff,  bool  bPolarityActiveLow,  int   iDelay,  int   iDuration )
-    FlyCaptureError flycaptureQueryStrobe(  FlyCaptureContext context,  int   iSource,  bool* pbAvailable,  bool* pbReadOut,  bool* pbOnOff,  bool* pbPolarity,  int*  piMinValue,  int*  piMaxValue )
-    FlyCaptureError flycaptureQueryLookUpTable( FlyCaptureContext context, bool* pbAvailable, unsigned int* puiNumChannels, bool* pbOn, unsigned int* puiBitDepth, unsigned int* puiNumEntries )
-    FlyCaptureError flycaptureEnableLookUpTable(  FlyCaptureContext context,  bool  bOn )
-    FlyCaptureError flycaptureSetLookUpTableChannel(FlyCaptureContext   context,unsigned int  uiChannel,const unsigned int* puiArray )
+    FlyCaptureError flycaptureQueryTrigger(   FlyCaptureContext  context,   bint*  pbPresent,   bint*  pbReadOut,   bint*  pbOnOff,   bint*  pbPolarity,   bint*  pbValueRead,   unsigned int*puiSourceMask,   bint*  pbSoftwareTrigger,   unsigned int*puiModeMask )
+    FlyCaptureError flycaptureGetTrigger( FlyCaptureContext context, bint* pbOnOff, int*  piPolarity, int*  piSource, int*  piRawValue, int*  piMode, int*  piParameter )
+    FlyCaptureError flycaptureSetTrigger(FlyCaptureContext context, bint  bOnOff, int   iPolarity, int   iSource, int   iMode, int   iParameter )
+    FlyCaptureError flycaptureSetTriggerBroadcast(    FlyCaptureContext context,    bint  bOnOff,    int   iPolarity,    int   iSource,    int   iMode,    int   iParameter )
+    FlyCaptureError flycaptureGetStrobe(  FlyCaptureContext context,  int   iSource,  bint* pbOnOff,  bint* pbPolarityActiveLow,  int*  piDelay,  int*  piDuration )
+    FlyCaptureError flycaptureSetStrobe(  FlyCaptureContext context,  int   iSource,  bint  bOnOff,  bint  bPolarityActiveLow,  int   iDelay,  int   iDuration )
+    FlyCaptureError flycaptureSetStrobeBroadcast(  FlyCaptureContext context,  int   iSource,  bint  bOnOff,  bint  bPolarityActiveLow,  int   iDelay,  int   iDuration )
+    FlyCaptureError flycaptureQueryStrobe(  FlyCaptureContext context,  int   iSource,  bint* pbAvailable,  bint* pbReadOut,  bint* pbOnOff,  bint* pbPolarity,  int*  piMinValue,  int*  piMaxValue )
+    FlyCaptureError flycaptureQueryLookUpTable( FlyCaptureContext context, bint* pbAvailable, unsigned int* puiNumChannels, bint* pbOn, unsigned int* puiBitDepth, unsigned int* puiNumEntries )
+    FlyCaptureError flycaptureEnableLookUpTable(  FlyCaptureContext context,  bint  bOn )
+    FlyCaptureError flycaptureSetLookUpTableChannel(FlyCaptureContext   context,unsigned int  uiChannel, unsigned int* puiArray )
     FlyCaptureError flycaptureGetLookUpTableChannel(FlyCaptureContext context,unsigned intuiChannel,unsigned int* puiArray )
 
 
+    ctypedef struct FlyCaptureImagePlus:
+        FlyCaptureImage   image
+        unsigned int      uiSeqNum
+        unsigned int      uiBufferIndex
+        unsigned int      uiBufSeqNum
+
+    ctypedef struct FlyCaptureImageEvent:
+        unsigned char* pBuffer
+        unsigned int   uiSizeBytes
+        unsigned int   uiSeqNum
+        unsigned int   uiBufferIndex
+        void*          pInternal
+        unsigned long  ulReserved[ 8 ]
+
+    ctypedef struct FlyCapturePacketInfo:
+        unsigned int   uiMinSizeBytes
+        unsigned int   uiMaxSizeBytes
+        unsigned int   uiMaxSizeEventBytes
+        unsigned long  ulReserved[ 8 ]
+
+    cdef enum:
+        FLYCAPTURE_IMAGE_FILTER_NONE                 = 0x00000000,
+        FLYCAPTURE_IMAGE_FILTER_SCORPION_CROSSTALK   = 0x00000001,
+        FLYCAPTURE_IMAGE_FILTER_ALL                  = 0xFFFFFFFF,
+
+
+    FlyCaptureError flycaptureInitializePlus(FlyCaptureContext   context, unsigned long       ulBusIndex, unsigned long       ulNumBuffers, unsigned char**     arpBuffers )
+    FlyCaptureError flycaptureInitializeFromSerialNumberPlus(FlyCaptureContext   context,
+                         FlyCaptureCameraSerialNumber serialNumber,
+                         unsigned long       ulNumBuffers,
+                         unsigned char**     arpBuffers )
+    FlyCaptureError flycaptureInitializeNotify(
+                           FlyCaptureContext    context,
+                           unsigned long        ulNumEvents,
+                           FlyCaptureImageEvent arpEvents[] )
+
+
+    FlyCaptureError flycaptureStartCustomImagePacket(
+                                 FlyCaptureContext       context,
+                                 unsigned long	         ulMode,
+                                 unsigned long           ulImagePosLeft,
+                                 unsigned long           ulImagePosTop,
+                                 unsigned long	         ulWidth,
+                                 unsigned long	         ulHeight,
+                                 unsigned long	         ulPacketSizeBytes,
+                                 FlyCapturePixelFormat   format )
+
+    FlyCaptureError flycaptureStartLockNext(
+                        FlyCaptureContext    context,
+                        FlyCaptureVideoMode  videoMode, 
+                        FlyCaptureFrameRate  frameRate )
+
+    FlyCaptureError flycaptureStartLockNextCustomImage(
+                                   FlyCaptureContext     context,
+                                   unsigned long         ulMode,
+                                   unsigned long         ulImagePosLeft,
+                                   unsigned long         ulImagePosTop,
+                                   unsigned long         ulWidth,
+                                   unsigned long	 ulHeight,
+                                   float                 fBandwidth,
+                                   FlyCapturePixelFormat format )
+
+
+    FlyCaptureError flycaptureStartLockNextCustomImagePacket(
+                                         FlyCaptureContext     context,
+                                         unsigned long	       ulMode,
+                                         unsigned long         ulImagePosLeft,
+                                         unsigned long         ulImagePosTop,
+                                         unsigned long	       ulWidth,
+                                         unsigned long	       ulHeight,
+                                         unsigned long	       ulPacketSizeBytes,
+                                         FlyCapturePixelFormat format )
+
+    FlyCaptureError flycaptureSyncForLockNext(
+                          FlyCaptureContext* arContexts,
+                          unsigned long      ulContexts )
+
+    FlyCaptureError flycaptureLockNext(
+                   FlyCaptureContext      context,
+                   FlyCaptureImagePlus*   pimage )
+
+
+    FlyCaptureError flycaptureLockLatest(
+                     FlyCaptureContext    context,
+                     FlyCaptureImagePlus* pimage )
+
+
+    FlyCaptureError flycaptureUnlock(
+                 FlyCaptureContext  context,
+                 unsigned long      ulBufferIndex )
+
+    FlyCaptureError flycaptureUnlockAll(
+                    FlyCaptureContext  context )
+
+    FlyCaptureError flycaptureGetImageFilters(FlyCaptureContext   context, unsigned int* puiFilters )
+
+
+    FlyCaptureError flycaptureSetImageFilters(FlyCaptureContext   context,
+                          unsigned int        uiFilters )
+
+
+    FlyCaptureError flycaptureGetImageTimestamping(FlyCaptureContext  context, bint*  pbOn )
+
+
+    FlyCaptureError flycaptureSetImageTimestamping(FlyCaptureContext  context, bint bOn )
+
+
+    FlyCaptureError flycaptureParseImageTimestamp(
+                              FlyCaptureContext    context,
+                              unsigned char* pData,
+                              unsigned int*        puiSeconds,
+                              unsigned int*        puiCount,
+                              unsigned int*        puiOffset )
+
+    FlyCaptureError flycaptureLockNextEvent(
+                        FlyCaptureContext    context,
+                        FlyCaptureImage*     pimage,
+                        FlyCaptureImageEvent arpEvents[] )
+
+
+    FlyCaptureError flycaptureWaitForImageEvent(
+                            FlyCaptureContext      context,
+                            FlyCaptureImageEvent*  pevent, 
+                            unsigned long          ulTimeout )
+
+
+    FlyCaptureError flycaptureUnlockEvent(
+                      FlyCaptureContext      context,
+                      FlyCaptureImageEvent   arpEvents[] )
+
+
+    FlyCaptureError flycaptureGetPacketInfo(
+                        FlyCaptureContext       context,
+                        FlyCaptureVideoMode     videoMode,
+                        FlyCaptureFrameRate     frameRate,
+                        FlyCapturePacketInfo*   pinfo )
+
+
+    FlyCaptureError flycaptureGetCustomImagePacketInfo(
+                                   FlyCaptureContext     context,
+                                   unsigned long	 ulMode,
+                                   unsigned long	 ulWidth,
+                                   unsigned long	 ulHeight,
+                                   FlyCapturePixelFormat format,
+                                   FlyCapturePacketInfo* pinfo )
+
+    FlyCaptureError flycaptureReadRegisterBlock(
+			    FlyCaptureContext   context,
+                            unsigned short      usAddrHigh,
+                            unsigned long       ulAddrLow,
+                            unsigned long*      pulBuffer,
+                            unsigned long       ulLength )
+                            
+
+    FlyCaptureError flycaptureWriteRegisterBlock(
+                             FlyCaptureContext      context,
+                             unsigned short         usAddrHigh,
+                             unsigned long          ulAddrLow,
+                              unsigned long*   pulBuffer,
+                             unsigned long          ulLength )
