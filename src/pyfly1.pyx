@@ -6,7 +6,9 @@
 
 .. moduleauthor:: Keith Brafford
 """
-    
+from libc.stdlib cimport malloc, free
+MAX_IMAGE_MEMORY = 10*1024*1024
+
 class FCError(Exception):
     """Exception wrapper for errors returned from underlying FlyCapture2 calls"""
     def __init__(self, errorcode):
@@ -60,12 +62,10 @@ cdef class Context(object):
 
     def StartCustomImage(self, mode, left, top, width, height, float bandwidth, fmt):
         cdef float bw = float(bandwidth)
-        errcheck(flycaptureStartCustomImage(self._context, mode,
-            left, top, width, height, bw, fmt))
+        errcheck(flycaptureStartCustomImage(self._context, mode,left, top, width, height, bw, fmt))
 
     def StartLockNext(self, video_mode, frame_rate):
-        errcheck(flycaptureStartLockNext(self._context,
-            video_mode, frame_rate))
+        errcheck(flycaptureStartLockNext(self._context, video_mode, frame_rate))
 
     def Stop(self):
         errcheck(flycaptureStop(self._context))
@@ -79,38 +79,76 @@ cdef class Context(object):
     #    errcheck(flycaptureGrabImage2(self._context, &image))
     #    return image
 
-    def GrabImagePIL(self):
+    def GrabImagePIL(self, transpose = None):
+        import Image as PILImage
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
-        cdef char * data
+        cdef bytes py_string
+
+        # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
+
+        # calculate the size (in bytes) of the image
+        width, height = image.iCols, image.iRows        
+        size = width * height * 3 
         
-        import Image as PILImage
-        width, height = image.iCols, image.iRows
-        size = width * height * 3
-        #converted.pData = (unsigned char *)0
+        # allocate a C buffer for the data
+        cdef unsigned char * convert_buffer = <unsigned char *> malloc(size)
+
+        # set the relevant fields of the fly capture image structure
+        #  1) the desired pixel format (BGR in our case)
+        #  2) the image data buffer points to our allocated array
         converted.pixelFormat = FLYCAPTURE_BGR
+        converted.pData = convert_buffer
+        
+        # perform the conversion
         errcheck(flycaptureConvertImage(self._context, &image, &converted))
-        data = converted.pData[0:size]
-        image = PILImage.fromstring('RGB', (width, height), data)
-        b, g, r = image.split()
-        image = PILImage.merge('RGB', (r, g, b))
-        image = image.transpose(PILImage.FLIP_TOP_BOTTOM)
-        return image
+
+        # turn the data buffer into a Python string
+        py_string = convert_buffer[0:size]
+        
+        # perform the creation of the PIL Image
+        pil_image = PILImage.fromstring('RGB', (width, height), py_string)
+
+        # we need to split the color channels
+        # reversing red and blue
+        b, g, r = pil_image.split()
+        
+        # re-merge them, swapping red and blue
+        pil_image = PILImage.merge('RGB', (r, g, b))
+        
+        # apply any transpose
+        if transpose:
+            pil_image = pil_image.transpose(transpose)
+
+        # free the temp buffer            
+        free(convert_buffer)
+
+        return pil_image
 
     def GrabImagePIL16(self):
-        import Image as PILImage
-        image = self.GrabImage()
-        width, height = image.Cols, image.Rows
+        import Image as PILImage    
+        cdef FlyCaptureImage image   
+        cdef bytes py_string
+        
+        # grab the image
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        
+        # calculate the size (in bytes) of the image        
+        width, height = image.iCols, image.iRows
         size = width * height * 2
-        data = image.Data[0:size]
-        image = PILImage.fromstring('I;16', (width, height), data)
-        return image
+
+        # perform the creation of the PIL Image        
+        py_string = image.pData[0:size]
+        pil_image = PILImage.fromstring('I;16', (width, height), py_string)
+        return pil_image
 
     def LockNext(self):
-        image = ImagePlus()
-        check_result(flycaptureLockNext(self._context, pointer(image)))
-        return image
+        import Image as PILImage
+        cdef FlyCaptureImagePlus image
+        errcheck(flycaptureLockNext(self._context, &image))
+        #return image
+        return None
 
     def GetCameraPropertyEx(self, FlyCaptureProperty key):
         cdef bint one_push
@@ -118,8 +156,7 @@ cdef class Context(object):
         cdef bint auto
         cdef int a 
         cdef int b
-        errcheck(flycaptureGetCameraPropertyEx(self._context, key,
-            &one_push, &on_off, &auto, &a, &b))
+        errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push, &on_off, &auto, &a, &b))
         return (one_push, on_off, auto, a, b)
 
     def SetCameraPropertyEx(self, FlyCaptureProperty key, bint one_push=False, bint on_off=False,
@@ -130,5 +167,4 @@ cdef class Context(object):
         auto = values[2] if auto is None else auto
         a = values[3] if a is -1 else a
         b = values[4] if b is -1 else b
-        check_result(flycaptureSetCameraPropertyEx(self._context, key,
-            one_push, on_off, auto, a, b))
+        errcheck(flycaptureSetCameraPropertyEx(self._context, key,one_push, on_off, auto, a, b))

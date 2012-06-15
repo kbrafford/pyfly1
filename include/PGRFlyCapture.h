@@ -15,6 +15,12 @@
 // THIS SOFTWARE OR ITS DERIVATIVES.
 //=============================================================================
 
+// krb -- need for bool type
+typedef unsigned int bool;
+
+// krb -- need to nest the headers
+#include "PGRFlyCapturePlus.h"
+
 //=============================================================================
 //
 // PGRFlyCapture.h
