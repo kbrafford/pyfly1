@@ -7,17 +7,17 @@
 .. moduleauthor:: Keith Brafford
 """
 from libc.stdlib cimport malloc, free
-MAX_IMAGE_MEMORY = 10*1024*1024
 
 class FCError(Exception):
     """Exception wrapper for errors returned from underlying FlyCapture2 calls"""
+
     def __init__(self, errorcode):
         self.errorcode = errorcode
 
     def __str__(self):
-        #error_desc = error_dict.get(self.errorcode)
-        error_desc = "Some error"
-        return repr(error_desc)
+        cdef bytes py_string
+        py_string = flycaptureErrorToString(self.errorcode)
+        return py_string
         
 cdef inline bint errcheck(FlyCaptureError result) except True:
     cdef bint is_error = (result != FLYCAPTURE_OK)
