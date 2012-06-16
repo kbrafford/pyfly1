@@ -8,6 +8,162 @@
 """
 from libc.stdlib cimport malloc, free
 
+class FCProperty(object):
+    BRIGHTNESS            = 0
+    AUTO_EXPOSURE         = 1
+    SHARPNESS             = 2
+    WHITE_BALANCE         = 3
+    HUE                   = 4
+    SATURATION            = 5
+    GAMMA                 = 6
+    IRIS                  = 7
+    FOCUS                 = 8
+    ZOOM                  = 9
+    PAN                   = 10
+    TILT                  = 11
+    SHUTTER               = 12
+    GAIN                  = 13
+    TRIGGER_DELAY         = 14
+    FRAME_RATE            = 15
+    SOFTWARE_WHITEBALANCE = 16
+    TEMPERATURE           = 17
+
+class FCBusEvent(object):
+    BUS_RESET      = 0x02
+    DEVICE_ARRIVAL = 0x03
+    DEVICE_REMOVAL = 0x04
+
+
+class FCFrameRate(object):
+    _1_875         = 0
+    _3_75          = 1
+    _7_5           = 2
+    _15            = 3
+    _30            = 4
+    UNUSED         = 5
+    _60            = 6
+    _120           = 7
+    _240           = 8
+    NUM_FRAMERATES = 9
+    CUSTOM         = 10
+    ANY            = 11
+
+class FCVideoMode(object):
+    _160x120YUV444   = 0
+    _320x240YUV422   = 1
+    _640x480YUV411   = 2
+    _640x480YUV422   = 3
+    _640x480RGB      = 4
+    _640x480Y8       = 5
+    _640x480Y16      = 6
+    _800x600YUV422   = 17
+    _800x600RGB      = 18
+    _800x600Y8       = 7
+    _800x600Y16      = 19
+    _1024x768YUV422  = 20
+    _1024x768RGB     = 21
+    _1024x768Y8      = 8
+    _1024x768Y16     = 9
+    _1280x960YUV422  = 22
+    _1280x960RGB     = 23
+    _1280x960Y8      = 10
+    _1280x960Y16     = 24
+    _1600x1200YUV422 = 50
+    _1600x1200RGB    = 51
+    _1600x1200Y8     = 11
+    _1600x1200Y16    = 52
+    CUSTOM           = 15
+    ANY              = 16
+    NUM_VIDEOMODES   = 23
+
+class FCCameraModel(object):
+    FIREFLY            = 0 
+    DRAGONFLY          = 1
+    AIM                = 2
+    SCORPION           = 3
+    TYPHOON            = 4
+    FLEA               = 5
+    DRAGONFLY_EXPRESS  = 6
+    FLEA2              = 7
+    FIREFLY_MV         = 8
+    DRAGONFLY2         = 9
+    BUMBLEBEE          = 10
+    BUMBLEBEE2         = 11
+    BUMBLEBEEXB3       = 12
+    GRASSHOPPER        = 13
+    CHAMELEON          = 14
+    UNKNOWN            = -1
+    FCCM_FORCE_QUADLET = 0x7FFFFFFF    
+
+class FCCameraType(object):
+    BLACK_AND_WHITE = 0
+    COLOR           = 1
+
+class FCBusSpeed(object):
+    S100                = 0
+    S200                = 1
+    S400                = 2
+    S480                = 3
+    S800                = 4
+    S1600               = 5
+    S3200               = 6
+    S_FASTEST           = 7
+    ANY                 = 8
+    SPEED_UNKNOWN       = -1
+    SPEED_FORCE_QUADLET = 0x7FFFFFFF
+
+class FCColorMethod(object):
+    DISABLE                = 0
+    EDGE_SENSING           = 1
+    NEAREST_NEIGHBOR       = 2
+    NEAREST_NEIGHBOR_FAST  = 3
+    RIGOROUS               = 4
+    HQLINEAR               = 5
+
+class FCStippleFormat(object):
+    BGGR     = 0
+    GBRG     = 1
+    GRBG     = 2
+    RGGB     = 3
+    DEFAULT  = 4
+
+class FCPixelFormat(object):
+    MONO8              = 0x00000001
+    _411YUV8           = 0x00000002
+    _422YUV8           = 0x00000004
+    _444YUV8           = 0x00000008
+    RGB8               = 0x00000010
+    MONO16             = 0x00000020
+    RGB16              = 0x00000040
+    S_MONO16           = 0x00000080
+    S_RGB16            = 0x00000100
+    RAW8               = 0x00000200
+    RAW16              = 0x00000400
+    BGR                = 0x10000001
+    BGRU               = 0x10000002
+    FCPF_FORCE_QUADLET = 0x7FFFFFFF
+
+class FCImageFileFormat(object):
+    PGM = 0
+    PPM = 1
+    BMP = 2
+    JPG = 3
+    PNG = 4
+    RAW = 5
+
+def get_library_version():    
+    version = flycaptureGetLibraryVersion()
+    major = version / 100
+    minor = version % 100
+    return (major, minor)
+
+def register_description(unsigned long int register):
+    cdef bytes py_string
+    
+    py_string = flycaptureRegisterToString(register)
+    return py_string
+
+    
 class FCError(Exception):
     """Exception wrapper for errors returned from underlying FlyCapture2 calls"""
 
@@ -36,7 +192,7 @@ cdef class Context(object):
         return context
 
     @staticmethod
-    def from_serial_number(serial_number):
+    def from_serial_number(FlyCaptureCameraSerialNumber serial_number):
         context = Context()
         context.InitializeFromSerialNumber(serial_number)
         return context
@@ -53,7 +209,7 @@ cdef class Context(object):
     def Initialize(self, int index):
         errcheck(flycaptureInitialize(self._context, index))
 
-    def InitializeFromSerialNumber(self, serial_number):
+    def InitializeFromSerialNumber(self, FlyCaptureCameraSerialNumber serial_number):
         errcheck(flycaptureInitializeFromSerialNumber(
             self._context, serial_number))
 
@@ -73,11 +229,6 @@ cdef class Context(object):
     def SetColorProcessingMethod(self, method):
         errcheck(flycaptureSetColorProcessingMethod(
             self._context, method))
-
-    #def GrabImage(self):
-    #    image = Image()
-    #    errcheck(flycaptureGrabImage2(self._context, &image))
-    #    return image
 
     def GrabImagePIL(self, transpose = None):
         import Image as PILImage
