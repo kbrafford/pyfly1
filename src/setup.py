@@ -8,7 +8,7 @@ from Cython.Distutils import build_ext
 # Build the pyd with python setup.py build_ext --inplace
 #
 desc = """This is Keith Brafford's first attempt at
-a wrapper for the FlyCapture1 C API.
+a wrapper for the FlyCapture v1 C API.
 """
 
 INCLUDEDIR = r'../include'

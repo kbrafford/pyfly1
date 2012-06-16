@@ -163,7 +163,6 @@ def register_description(unsigned long int register):
     py_string = flycaptureRegisterToString(register)
     return py_string
 
-    
 class FCError(Exception):
     """Exception wrapper for errors returned from underlying FlyCapture2 calls"""
 
@@ -180,6 +179,43 @@ cdef inline bint errcheck(FlyCaptureError result) except True:
     if is_error:
         raise FCError(result)
     return is_error
+
+def get_camera_count():
+    cdef unsigned int camera_count
+    errcheck(flycaptureBusCameraCount( &camera_count))
+    return camera_count
+
+
+def get_camera_information():
+    cdef unsigned int camera_count
+    
+    # first we need to know how many cameras there are
+    errcheck(flycaptureBusCameraCount( &camera_count))
+
+    # now we need to allocate space for an array of
+    # FlyCaptureInfoEx records, one for each camera
+    cdef FlyCaptureInfoEx record_array[16]
+    cdef unsigned int record_size = 16 
+
+    errcheck(flycaptureBusEnumerateCamerasEx(record_array, &record_size))
+
+    return_list = []
+    for i in range(camera_count):
+        d = {}
+        d["SerialNumber"] = record_array[i].SerialNumber
+        d["CameraType"] = record_array[i].CameraType
+        d["CameraModel"] = record_array[i].CameraModel
+        d["ModelName"] = str(record_array[i].pszModelName)
+        d["VendorName"] = str(record_array[i].pszVendorName)
+        d["SensorInfo"] = str(record_array[i].pszSensorInfo)
+        d["iDCAMVer"] = record_array[i].iDCAMVer
+        d["iNodeNum"] = record_array[i].iNodeNum
+        d["iBusNum"] = record_array[i].iBusNum
+        d["CameraMaxBusSpeed"] = record_array[i].CameraMaxBusSpeed
+        d["iInitialized"] = record_array[i].iInitialized
+        
+        return_list.append(d)
+    return return_list
     
 # Context Functions
 cdef class Context(object):
@@ -229,6 +265,33 @@ cdef class Context(object):
     def SetColorProcessingMethod(self, method):
         errcheck(flycaptureSetColorProcessingMethod(
             self._context, method))
+
+    def GrabImageNP(self):
+        import numpy as np
+        cdef FlyCaptureImage image
+
+        # grab the image
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        iRows, iCols = image.iRows, image.iCols        
+        size = iRows * iCols
+
+        if image.pixelFormat in (FLYCAPTURE_MONO8, FLYCAPTURE_RAW8):
+            # 8 bits of data per pixel
+            A = np.frombuffer(image.pData[:size],dtype='uint8')
+
+        elif image.pixelFormat in (FLYCAPTURE_MONO16, FLYCAPTURE_RAW16):
+            # 16 bits of data per pixel            
+            A = np.frombuffer(image.pData[:size*2],dtype='uint16')
+
+        elif image.pixelFormat in (FLYCAPTURE_BGR, FLYCAPTURE_RGB8, FLYCAPTURE_444YUV8):
+            # 24 bits of data per pixel            
+            A = np.frombuffer(image.pData[:size*3],dtype='uint24')
+
+        elif image.pixelFormat in (FLYCAPTURE_BGRU,):
+            # 32 bits of data per pixel            
+            A = np.frombuffer(image.pData[:size*4],dtype='uint32')
+
+        return A.reshape((image.iRows, image.iCols ))        
 
     def GrabImagePIL(self, transpose = None):
         import Image as PILImage
