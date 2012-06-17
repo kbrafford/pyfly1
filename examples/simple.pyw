@@ -7,13 +7,14 @@ import pyfly1
 from pyfly1 import Context, FCColorMethod, FCVideoMode, FCFrameRate
 
 class Panel(wx.Panel):
-    def __init__(self, parent, context, my_index, update_rate = 1.0):
+    def __init__(self, parent, context, my_index, font, update_rate = 1.0):
         super(Panel, self).__init__(parent, -1)
         self.context, self.serial = context
         self.serial = str(self.serial)
         self.my_index = my_index
+        self.panel_count = parent.panel_count
         self.parent = parent
-        self.font = ImageFont.truetype("arial.ttf", 20)
+        self.font = font
         self.update_rate = update_rate
         self.count = 0
         self.fps = 0.0
@@ -28,8 +29,9 @@ class Panel(wx.Panel):
         self.Update()
         wx.CallLater(5, self.update)
     def create_bitmap(self):
-        image = self.context.GrabImagePIL().resize((int(1280/2), int(960/2)), Image.NEAREST)
+        image = self.context.GrabImagePIL().resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         draw = ImageDraw.Draw(image)
+        draw.text((12,12), self.serial, font = self.font, fill='rgb(100, 100, 100)')        
         draw.text((10,10), self.serial, font = self.font, fill='rgb(200, 255, 255)')
         #image = self.context.GrabImagePIL()
         width, height = image.size
@@ -58,10 +60,11 @@ class Frame(wx.Frame):
         style = wx.DEFAULT_FRAME_STYLE & ~wx.RESIZE_BORDER & ~wx.MAXIMIZE_BOX
         super(Frame, self).__init__(None, -1, 'FlyCapture', style=style)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        font = ImageFont.truetype("arial.ttf", 20)
         self.panel_count = len(contexts)
         self.panels = []
         for index, context in enumerate(contexts):
-            p = Panel(self, context, index)
+            p = Panel(self, context, index, font)
             self.sizer.Add(p, 1, wx.EXPAND)
             self.panels.append(p)
         self.SetSizerAndFit(self.sizer)
@@ -85,7 +88,7 @@ def main():
  
     contexts = []
     for index, info in enumerate(camera_info_list):    
-        context,serial = Context.from_index(index),info["ModelName"] + " - " + str(info["SerialNumber"])
+        context,serial = Context.from_index(index),info["ModelName"] + " - S/N " + str(info["SerialNumber"])
         context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
         context.Start(FCVideoMode._1280x960Y8, FCFrameRate._15)
         contexts.append((context,serial))
