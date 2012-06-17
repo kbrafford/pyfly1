@@ -39,12 +39,12 @@ Building and Installation
    to be on your python path.  So, I recommend adding the src dir of the repo's src dir
    by creating a file called "default.pth" in your python directory, with this line in it:
    
-   C:\Path\To\Pyfly1Repo\src
+   C:\\Path\\To\\Pyfly1Repo\\src
    
-   For instance, I have a file called "default.pth" in my C:\Python27 directory, with this
+   For instance, I have a file called "default.pth" in my C:\\Python27 directory, with this
    one line of content in it:
    
-   C:\Users\Keith\Documents\GitHub\pyfly1\src
+   C:\\Users\\Keith\\Documents\\GitHub\\pyfly1\\src
    
 3) Install the FlyCapture software
 
