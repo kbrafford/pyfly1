@@ -30,7 +30,7 @@ class Panel(wx.Panel):
         wx.CallLater(5, self.update)
 
     def create_bitmap(self):
-        image = self.context.GrabImagePIL().resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
+        image = self.context.GrabImagePIL(transpose = Image.ROTATE_180).resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         #image = self.context.GrabImagePIL(transpose = Image.FLIP_TOP_BOTTOM)
          
         # ImageDraw.text() function causes MASSIVE memory leak       
