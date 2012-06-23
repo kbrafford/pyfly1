@@ -369,16 +369,16 @@ cdef class Context(object):
             # calculate the size (in bytes) of the image
             width, height = image.iCols, image.iRows        
             size = width * height * 3 
-            
+
             # allocate the space for the convertde image
             convert_buffer = <unsigned char *> malloc(size)
 
             # set the relevant fields of the fly capture image structure
             #  1) the desired pixel format (BGR in our case)
             #  2) the image data buffer points to our allocated array
-            converted.pixelFormat = FLYCAPTURE_BGR
+            converted.pixelFormat = FLYCAPTURE_RGB8
             converted.pData = convert_buffer
-            
+
             # perform the conversion
             errcheck(flycaptureConvertImage(self._context, &image, &converted))
 
@@ -399,8 +399,7 @@ cdef class Context(object):
             # perform the creation of the PIL Image        
             py_string = image.pData[0:size]
             pil_image = PILImage.fromstring('L', (width, height), py_string)
-            
-            
+
         # apply any transpose
         if transpose:
             pil_image = pil_image.transpose(transpose)
