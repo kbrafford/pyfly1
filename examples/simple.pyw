@@ -4,7 +4,7 @@ import ImageDraw
 import ImageFont
 import time
 import pyfly1
-from pyfly1 import Context, FCColorMethod, FCVideoMode, FCFrameRate
+from pyfly1 import Context, Context3D, FCColorMethod, FCVideoMode, FCFrameRate
 
 class Panel(wx.Panel):
     def __init__(self, parent, context, my_index, font, update_rate = 1.0):
@@ -28,15 +28,21 @@ class Panel(wx.Panel):
         self.Refresh()
         self.Update()
         wx.CallLater(5, self.update)
+
     def create_bitmap(self):
         image = self.context.GrabImagePIL().resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
-        draw = ImageDraw.Draw(image)
-        draw.text((12,12), self.serial, font = self.font, fill='rgb(100, 100, 100)')        
-        draw.text((10,10), self.serial, font = self.font, fill='rgb(200, 255, 255)')
-        #image = self.context.GrabImagePIL()
+        #image = self.context.GrabImagePIL(transpose = Image.FLIP_TOP_BOTTOM)
+         
+        # ImageDraw.text() function causes MASSIVE memory leak       
+        #draw = ImageDraw.Draw(image)
+        #draw.text((12,12), self.serial, font = self.font, fill='rgb(100, 100, 100)')        
+        #draw.text((10,10), self.serial, font = self.font, fill='rgb(200, 255, 255)')
+        #del draw
+
         width, height = image.size
         data = image.convert('RGB').tostring()
         bitmap = wx.BitmapFromBuffer(width, height, data)
+
         # timekeeping
         if self.my_index == 0:        
             self.count += 1
@@ -46,7 +52,8 @@ class Panel(wx.Panel):
                 self.fps = self.count / elapsed
                 self.starttime = now
                 self.count = 0
-                self.update_titlebar()        
+                self.update_titlebar()
+
         return bitmap
 
     def on_paint(self, event):
@@ -85,13 +92,22 @@ def main():
     # This example works with color and
     # monochrome Chameleon models
     camera_info_list = pyfly1.get_camera_information()
- 
+
     contexts = []
     for index, info in enumerate(camera_info_list):    
         context,serial = Context.from_index(index),info["ModelName"] + " - S/N " + str(info["SerialNumber"])
         context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
         context.Start(FCVideoMode._1280x960Y8, FCFrameRate._15)
         contexts.append((context,serial))
+ 
+    if len(camera_info_list) == 2:
+        choice = raw_input("Would you like to run in 3D mode? (y/N)")
+        
+        if choice in ("Y", "y", "yes", "Yes"):
+            context,serial = Context3D(), "Two Cameras"
+            context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
+            context.Start(FCVideoMode._1280x960Y8, FCFrameRate._15)                
+            contexts = [(context, serial)]
 
     # now start the wx GUI
     app = wx.App(None)
