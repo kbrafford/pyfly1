@@ -353,13 +353,13 @@ cdef class Context(object):
 
         return A.reshape((image.iRows, image.iCols ))        
 
-    def GrabImagePIL(self, transpose = None):
+    def GrabImagePIL(self, transpose = None):        
         import Image as PILImage
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
         cdef bytes py_string
         cdef unsigned char *convert_buffer
-        
+
         # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
 
@@ -384,7 +384,7 @@ cdef class Context(object):
 
             # turn the data buffer into a Python string
             py_string = convert_buffer[0:size]
-            
+
             # perform the creation of the PIL Image
             pil_image = PILImage.fromstring('RGB', (width, height), py_string)
 
@@ -399,7 +399,8 @@ cdef class Context(object):
             # perform the creation of the PIL Image        
             py_string = image.pData[0:size]
             pil_image = PILImage.fromstring('L', (width, height), py_string)
-
+            
+            
         # apply any transpose
         if transpose:
             pil_image = pil_image.transpose(transpose)
