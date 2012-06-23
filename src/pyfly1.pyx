@@ -9,6 +9,12 @@
 from libc.stdlib cimport malloc, free
 
 class FCProperty(object):
+    """An enumeration of the different camera properties that can be set via
+the API.
+
+Remarks:
+ A lot of these properties are included only for completeness and future
+ expandability, and will have no effect on a PGR camera."""
     BRIGHTNESS            = 0
     AUTO_EXPOSURE         = 1
     SHARPNESS             = 2
@@ -29,12 +35,14 @@ class FCProperty(object):
     TEMPERATURE           = 17
 
 class FCBusEvent(object):
+    """An enumeration of the different type of bus events."""
     BUS_RESET      = 0x02
     DEVICE_ARRIVAL = 0x03
     DEVICE_REMOVAL = 0x04
 
 
 class FCFrameRate(object):
+    """Enum describing different framerates."""
     _1_875         = 0
     _3_75          = 1
     _7_5           = 2
@@ -49,6 +57,10 @@ class FCFrameRate(object):
     ANY            = 11
 
 class FCVideoMode(object):
+    """Enum describing different video modes.
+
+Remarks:
+ The explicit numbering is to provide downward compatibility for this enum."""
     _160x120YUV444   = 0
     _320x240YUV422   = 1
     _640x480YUV411   = 2
@@ -77,6 +89,8 @@ class FCVideoMode(object):
     NUM_VIDEOMODES   = 23
 
 class FCCameraModel(object):
+    """ An enumeration used to describe the different camera models that can
+be accessed through this SDK."""
     FIREFLY            = 0 
     DRAGONFLY          = 1
     AIM                = 2
@@ -96,10 +110,13 @@ class FCCameraModel(object):
     FCCM_FORCE_QUADLET = 0x7FFFFFFF    
 
 class FCCameraType(object):
+    """ An enumeration used to describe the different camera color
+configurations."""
     BLACK_AND_WHITE = 0
     COLOR           = 1
 
 class FCBusSpeed(object):
+    """An enumeration used to describe the bus speed"""
     S100                = 0
     S200                = 1
     S400                = 2
@@ -113,6 +130,13 @@ class FCBusSpeed(object):
     SPEED_FORCE_QUADLET = 0x7FFFFFFF
 
 class FCColorMethod(object):
+    """ An enumeration used to describe the different color processing
+methods.
+
+Remarks:
+ This is only relevant for cameras that do not do on-board color
+ processing, such as the Dragonfly.  The FLYCAPTURE_RIGOROUS
+ method is very slow and will not keep up with high frame rates."""
     DISABLE                = 0
     EDGE_SENSING           = 1
     NEAREST_NEIGHBOR       = 2
@@ -121,6 +145,15 @@ class FCColorMethod(object):
     HQLINEAR               = 5
 
 class FCStippleFormat(object):
+    """An enumeration used to indicate the Bayer tile format of the stippled
+images passed into a destippling function.
+
+Remarks:
+ This is only relevant for cameras that do not do onboard color
+ processing, such as the Dragonfly.  The four letters of the enum
+ value correspond to the "top left" 2x2 section of the stippled image.
+ For example, the first line of a BGGR image image will be
+ BGBGBG..., and the second line will be GRGRGR...."""
     BGGR     = 0
     GBRG     = 1
     GRBG     = 2
@@ -128,6 +161,9 @@ class FCStippleFormat(object):
     DEFAULT  = 4
 
 class FCPixelFormat(object):
+    """An enumeration used to indicate the pixel format of an image.  This
+enumeration is used as a member of FlyCaptureImage and as a parameter
+to FlyCaptureStartCustomImage()."""
     MONO8              = 0x00000001
     _411YUV8           = 0x00000002
     _422YUV8           = 0x00000004
@@ -144,6 +180,8 @@ class FCPixelFormat(object):
     FCPF_FORCE_QUADLET = 0x7FFFFFFF
 
 class FCImageFileFormat(object):
+    """Enumerates the image file formats that flycaptureSaveImage() can write 
+to."""
     PGM = 0
     PPM = 1
     BMP = 2
@@ -151,7 +189,24 @@ class FCImageFileFormat(object):
     PNG = 4
     RAW = 5
 
-def get_library_version():    
+def get_library_version():
+    """This function returns the version of the library defined in the
+header file this python wrapper was compiled with.
+
+    Parameters
+    ----------
+        None
+
+    Returns
+    -------
+        out : tuple
+              the major, minor version of the library
+
+    Raises
+    ------
+        None
+    """
+
     version = flycaptureGetLibraryVersion()
     major = version / 100
     minor = version % 100
@@ -249,8 +304,13 @@ cdef class Context(object):
         errcheck(flycaptureInitializeFromSerialNumber(
             self._context, serial_number))
 
-    def Start(self, video_mode, frame_rate):
+    def Start(self, video_mode, frame_rate, stipple_pattern = FCStippleFormat.GRBG):
+        cdef FlyCaptureStippledFormat stipple_format = stipple_pattern
+
         errcheck(flycaptureStart(self._context, video_mode, frame_rate))
+
+        if stipple_pattern != FCStippleFormat.DEFAULT:
+            errcheck(flycaptureSetColorTileFormat(self._context, stipple_format))
 
     def StartCustomImage(self, mode, left, top, width, height, float bandwidth, fmt):
         cdef float bw = float(bandwidth)
@@ -298,45 +358,51 @@ cdef class Context(object):
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
         cdef bytes py_string
-
+        cdef unsigned char *convert_buffer
+        
         # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
 
-        # calculate the size (in bytes) of the image
-        width, height = image.iCols, image.iRows        
-        size = width * height * 3 
-        
-        # allocate a C buffer for the data
-        cdef unsigned char * convert_buffer = <unsigned char *> malloc(size)
+        # if we got a raw colour image (from a chameleon C)
+        # we need to turn it into RGB
+        if image.pixelFormat == FLYCAPTURE_RAW8:                
+            # calculate the size (in bytes) of the image
+            width, height = image.iCols, image.iRows        
+            size = width * height * 3 
+            
+            # allocate the space for the convertde image
+            convert_buffer = <unsigned char *> malloc(size)
 
-        # set the relevant fields of the fly capture image structure
-        #  1) the desired pixel format (BGR in our case)
-        #  2) the image data buffer points to our allocated array
-        converted.pixelFormat = FLYCAPTURE_BGR
-        converted.pData = convert_buffer
-        
-        # perform the conversion
-        errcheck(flycaptureConvertImage(self._context, &image, &converted))
+            # set the relevant fields of the fly capture image structure
+            #  1) the desired pixel format (BGR in our case)
+            #  2) the image data buffer points to our allocated array
+            converted.pixelFormat = FLYCAPTURE_BGR
+            converted.pData = convert_buffer
+            
+            # perform the conversion
+            errcheck(flycaptureConvertImage(self._context, &image, &converted))
 
-        # turn the data buffer into a Python string
-        py_string = convert_buffer[0:size]
-        
-        # perform the creation of the PIL Image
-        pil_image = PILImage.fromstring('RGB', (width, height), py_string)
+            # turn the data buffer into a Python string
+            py_string = convert_buffer[0:size]
+            
+            # perform the creation of the PIL Image
+            pil_image = PILImage.fromstring('RGB', (width, height), py_string)
 
-        # we need to split the color channels
-        # reversing red and blue
-        b, g, r = pil_image.split()
-        
-        # re-merge them, swapping red and blue
-        pil_image = PILImage.merge('RGB', (r, g, b))
-        
+            # free the temp buffer            
+            free(convert_buffer)
+
+        elif image.pixelFormat == FLYCAPTURE_MONO8:                
+            # calculate the size (in bytes) of the image        
+            width, height = image.iCols, image.iRows
+            size = width * height
+
+            # perform the creation of the PIL Image        
+            py_string = image.pData[0:size]
+            pil_image = PILImage.fromstring('L', (width, height), py_string)
+
         # apply any transpose
         if transpose:
             pil_image = pil_image.transpose(transpose)
-
-        # free the temp buffer            
-        free(convert_buffer)
 
         return pil_image
 
