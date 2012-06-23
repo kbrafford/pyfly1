@@ -7,6 +7,7 @@
 .. moduleauthor:: Keith Brafford
 """
 from libc.stdlib cimport malloc, free
+import time      
 
 class FCProperty(object):
     """An enumeration of the different camera properties that can be set via
@@ -271,6 +272,61 @@ def get_camera_information():
         
         return_list.append(d)
     return return_list
+
+#
+# 3D Context
+#
+class Context3D(object):    
+    def __init__(self):
+        self.left = Context.from_index(0)
+        self.right = Context.from_index(1)
+       
+    def SetColorProcessingMethod(self, method):
+        self.left.SetColorProcessingMethod(method)
+        self.right.SetColorProcessingMethod(method)
+
+    def Start(self, video_mode, frame_rate, stipple_pattern = FCStippleFormat.GRBG):
+        self.left.Start(video_mode, frame_rate, stipple_pattern)
+        self.right.Start(video_mode, frame_rate, stipple_pattern)
+
+    def Stop(self):
+        self.left.Stop()
+        self.right.Stop()
+
+    def __del__(self):
+        self.Destroy()
+
+    def Destroy(self):
+        self.left.Destroy()
+        self.right.Destroy()
+
+    def GrabImagePIL(self, transpose = None):  
+        import Image as PILImage
+
+        pil_left = self.left.GrabImagePIL()
+        pil_right = self.right.GrabImagePIL()
+        
+        size_left = pil_left.size
+        size_right = pil_right.size
+        
+        if size_right != size_left:
+            pil_right = pil_right.resize(size_left, PILImage.BILINEAR)
+
+        if pil_left.mode == "L":
+            red = pil_left
+        else:
+            red,g,b = pil_left.split()
+            
+        if pil_right.mode == "L":
+            green = pil_right
+            blue = pil_right
+        else:
+            r,green,blue = pil_right.split()
+
+        pil_image = PILImage.merge("RGB", (red, green, blue))
+
+        return pil_image
+
     
 # Context Functions
 cdef class Context(object):
@@ -353,7 +409,7 @@ cdef class Context(object):
 
         return A.reshape((image.iRows, image.iCols ))        
 
-    def GrabImagePIL(self, transpose = None):        
+    def GrabImagePIL(self, transpose = None):  
         import Image as PILImage
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
@@ -362,6 +418,8 @@ cdef class Context(object):
 
         # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
+
+        st = time.clock()
 
         # if we got a raw colour image (from a chameleon C)
         # we need to turn it into RGB
@@ -376,7 +434,7 @@ cdef class Context(object):
             # set the relevant fields of the fly capture image structure
             #  1) the desired pixel format (BGR in our case)
             #  2) the image data buffer points to our allocated array
-            converted.pixelFormat = FLYCAPTURE_RGB8
+            converted.pixelFormat = FLYCAPTURE_BGR
             converted.pData = convert_buffer
 
             # perform the conversion
@@ -403,6 +461,9 @@ cdef class Context(object):
         # apply any transpose
         if transpose:
             pil_image = pil_image.transpose(transpose)
+
+        end= time.clock()
+        #print "elapsed: %f" % (end - st)
 
         return pil_image
 
