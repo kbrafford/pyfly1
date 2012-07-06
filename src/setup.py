@@ -2,6 +2,8 @@ import os.path, platform
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
+import numpy
+
 #bits,foo = platform.architecture()
 
 #
@@ -24,6 +26,7 @@ setup(
                              ["pyfly1.pyx"],
                              include_dirs = [".",
                                              INCLUDEDIR,
+                                             numpy.get_include(),
                                              ],
                              extra_compile_args = [],
                              extra_link_args = [],
