@@ -8,6 +8,8 @@
 """
 from libc.stdlib cimport malloc, free
 import time      
+import numpy
+cimport numpy as np
 
 class FCProperty(object):
     """An enumeration of the different camera properties that can be set via
@@ -274,12 +276,63 @@ def get_camera_information():
     return return_list
 
 #
+# Pair Context
+#
+class ContextPair(object):
+    THRESHOLD = .05
+
+    @classmethod
+    def SetThreshold(cls, threshold):
+        cls.THRESHOLD = threshold
+
+    def __init__(self):
+        self.left = Context.from_index(1)
+        self.right = Context.from_index(0)
+
+    def SetColorProcessingMethod(self, method):
+        self.left.SetColorProcessingMethod(method)
+        self.right.SetColorProcessingMethod(method)
+
+    def Start(self, video_mode, frame_rate, stipple_pattern = FCStippleFormat.GRBG):
+        self.left.Start(video_mode, frame_rate, stipple_pattern)
+        self.right.Start(video_mode, frame_rate, stipple_pattern)
+
+    def Stop(self):
+        self.left.Stop()
+        self.right.Stop()
+
+    def __del__(self):
+        self.Destroy()
+
+    def Destroy(self):
+        self.left.Destroy()
+        self.right.Destroy()
+
+    def GrabImagePIL(self, transpose = None):
+        import Image as PILImage
+
+        pil_left, timestamp_left = self.left.GrabImagePIL()
+        pil_right, timestamp_right = self.right.GrabImagePIL()
+
+        delta = abs(timestamp_left - timestamp_right)
+
+        if delta > self.THRESHOLD:
+            if timestamp_left > timestamp_right:
+                # left is newer
+                pil_right, timestamp_right = self.right.GrabImagePIL()
+            else:
+                # right is newer
+                pil_left, timestamp_left = self.left.GrabImagePIL()
+
+        return pil_left, pil_right, timestamp_left, timestamp_right
+
+#
 # 3D Context
 #
 class Context3D(object):    
     def __init__(self):
-        self.left = Context.from_index(0)
-        self.right = Context.from_index(1)
+        self.left = Context.from_index(1)
+        self.right = Context.from_index(0)
        
     def SetColorProcessingMethod(self, method):
         self.left.SetColorProcessingMethod(method)
@@ -303,8 +356,8 @@ class Context3D(object):
     def GrabImagePIL(self, transpose = None):  
         import Image as PILImage
 
-        pil_left = self.left.GrabImagePIL()
-        pil_right = self.right.GrabImagePIL()
+        pil_left, timestamp_left = self.left.GrabImagePIL()
+        pil_right, timestamp_right = self.right.GrabImagePIL()
         
         size_left = pil_left.size
         size_right = pil_right.size
@@ -325,7 +378,7 @@ class Context3D(object):
 
         pil_image = PILImage.merge("RGB", (red, green, blue))
 
-        return pil_image
+        return pil_image, timestamp_left
 
     
 # Context Functions
@@ -393,31 +446,35 @@ cdef class Context(object):
 
         if image.pixelFormat in (FLYCAPTURE_MONO8, FLYCAPTURE_RAW8):
             # 8 bits of data per pixel
-            A = np.frombuffer(image.pData[:size],dtype='uint8')
+            A = numpy.frombuffer(image.pData[:size],dtype='uint8')
 
         elif image.pixelFormat in (FLYCAPTURE_MONO16, FLYCAPTURE_RAW16):
             # 16 bits of data per pixel            
-            A = np.frombuffer(image.pData[:size*2],dtype='uint16')
+            A = numpy.frombuffer(image.pData[:size*2],dtype='uint16')
 
         elif image.pixelFormat in (FLYCAPTURE_BGR, FLYCAPTURE_RGB8, FLYCAPTURE_444YUV8):
             # 24 bits of data per pixel            
-            A = np.frombuffer(image.pData[:size*3],dtype='uint24')
+            A = numpy.frombuffer(image.pData[:size*3],dtype='uint24')
 
         elif image.pixelFormat in (FLYCAPTURE_BGRU,):
             # 32 bits of data per pixel            
-            A = np.frombuffer(image.pData[:size*4],dtype='uint32')
+            A = numpy.frombuffer(image.pData[:size*4],dtype='uint32')
 
         return A.reshape((image.iRows, image.iCols ))        
 
-    def GrabImagePIL(self, transpose = None):  
+    def GrabImagePIL(self, transpose = None):
         import Image as PILImage
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
         cdef bytes py_string
         cdef unsigned char *convert_buffer
+        cdef Py_ssize_t byte_length
+        cdef int size
 
         # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
+
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
 
         st = time.clock()
 
@@ -428,7 +485,7 @@ cdef class Context(object):
             width, height = image.iCols, image.iRows        
             size = width * height * 3 
 
-            # allocate the space for the convertde image
+            # allocate the space for the converted image
             convert_buffer = <unsigned char *> malloc(size)
 
             # set the relevant fields of the fly capture image structure
@@ -437,12 +494,16 @@ cdef class Context(object):
             converted.pixelFormat = FLYCAPTURE_BGR
             converted.pData = convert_buffer
 
+
             # perform the conversion
             errcheck(flycaptureConvertImage(self._context, &image, &converted))
 
-            # turn the data buffer into a Python string
-            py_string = convert_buffer[0:size]
 
+
+            # turn the data buffer into a Python string            
+            byte_length = size
+            py_string = convert_buffer[:byte_length]
+            
             # perform the creation of the PIL Image
             pil_image = PILImage.fromstring('RGB', (width, height), py_string)
 
@@ -462,10 +523,11 @@ cdef class Context(object):
         if transpose:
             pil_image = pil_image.transpose(transpose)
 
+
         end= time.clock()
         #print "elapsed: %f" % (end - st)
 
-        return pil_image
+        return pil_image, timestamp
 
     def GrabImagePIL16(self):
         import Image as PILImage    
