@@ -30,7 +30,9 @@ class Panel(wx.Panel):
         wx.CallLater(5, self.update)
 
     def create_bitmap(self):
-        image = self.context.GrabImagePIL(transpose = Image.ROTATE_180).resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
+        image, timestamp = self.context.GrabImagePIL()
+        print self.my_index, timestamp
+        image = image.resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         #image = self.context.GrabImagePIL(transpose = Image.FLIP_TOP_BOTTOM)
          
         # ImageDraw.text() function causes MASSIVE memory leak       
@@ -88,6 +90,9 @@ class Frame(wx.Frame):
         event.Skip()
 
 def main():    
+    video_mode = FCVideoMode._1280x960Y8
+    frame_rate = FCFrameRate._15
+
     # Start the point grey camera(s)
     # This example works with color and
     # monochrome Chameleon models
@@ -97,7 +102,7 @@ def main():
     for index, info in enumerate(camera_info_list):    
         context,serial = Context.from_index(index),info["ModelName"] + " - S/N " + str(info["SerialNumber"])
         context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
-        context.Start(FCVideoMode._1280x960Y8, FCFrameRate._15)
+        context.Start(video_mode, frame_rate)
         contexts.append((context,serial))
  
     if len(camera_info_list) == 2:
@@ -106,7 +111,7 @@ def main():
         if choice in ("Y", "y", "yes", "Yes"):
             context,serial = Context3D(), "Two Cameras"
             context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
-            context.Start(FCVideoMode._1280x960Y8, FCFrameRate._15)                
+            context.Start(video_mode, frame_rate)
             contexts = [(context, serial)]
 
     # now start the wx GUI
