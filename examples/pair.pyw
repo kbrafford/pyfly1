@@ -90,7 +90,7 @@ class Frame(wx.Frame):
         right_data = right.convert('RGB').tostring()
         self.right_bitmap = wx.BitmapFromBuffer(width, height, right_data)
 
-        print "Got bitmaps!", time_left, time_right
+        print "Got bitmaps! %.5f %.5f" % (time_left, time_right)
 
         # timekeeping
         self.count += 1
