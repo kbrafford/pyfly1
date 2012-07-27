@@ -606,13 +606,27 @@ cdef class Context(object):
             cv_image = cv.CreateImageHeader((width, height),
                                              cv.IPL_DEPTH_8U, 3)
             cv.SetData(cv_image, py_string, step)
-            cv.CvtColor(cv_image, cv_image, cv.CV_BGR2RGB)
 
             # free the temp buffer            
             free(convert_buffer)
 
         elif image.pixelFormat == FLYCAPTURE_MONO8:
-            raise NotImplementedError("Can not grab mono CV images yet!")
+            # calculate the size (in bytes) of the image
+            width, height = image.iCols, image.iRows        
+
+            # turn the data buffer into a Python string            
+            byte_length = width * height
+            py_string = image.pData[:byte_length]
+
+            # create the grayscale CV image            
+            step = image.iRowInc            
+            cv_image_gray = cv.CreateImageHeader((width, height),
+                                             cv.IPL_DEPTH_8U, 1)
+            cv.SetData(cv_image_gray, py_string, step)
+
+            # convert the CV grayscale image to an RBG image
+            cv_image = cv.CreateImage((width, height), cv.IPL_DEPTH_8U, 3)            
+            cv.CvtColor(cv_image_gray, cv_image, cv.CV_GRAY2RGB)
 
         # apply any transpose
         if transpose:
