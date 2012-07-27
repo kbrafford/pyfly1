@@ -17,7 +17,7 @@ class Panel(wx.Panel):
         wx.CallLater(1, self.update)
     def create_bitmap(self):
         image, timestamp = self.context.GrabImageCV()
-        cv.Sub(image,self.imageBgnd,image) #find background
+        #cv.Sub(image,self.imageBgnd,image) #find background
         width, height = cv.GetSize(image)
         data = image.tostring()
         bitmap = wx.BitmapFromBuffer(width, height, data)
