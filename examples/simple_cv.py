@@ -20,10 +20,17 @@ def main():
     time.sleep(.1)
 
     start_time = time.clock()    
-    print "grabbing image (Bypass == False)"    
-    cvimage, timestamp = context.GrabImageCV(bypass = False)
+    print "grabbing image (Bypass == True)"    
+    cvimage, timestamp = context.GrabImageCV(bypass = True)
     duration = time.clock() - start_time
-    print "image acquired in %.5fms" % (duration / 1000.0)
+    print "image acquired in %.5fms" % (duration * 1000.0)
+
+    for i in range(10):
+        start_time = time.clock()    
+        print "grabbing another image (Bypass == True)"    
+        cvimage, timestamp = context.GrabImageCV(bypass = True)
+        duration = time.clock() - start_time
+        print "image acquired in %.5fms" % (duration * 1000.0)
 
     print "saving image"    
     cv.SaveImage("image.png", cvimage)
