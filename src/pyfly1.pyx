@@ -308,11 +308,11 @@ class ContextPair(object):
         self.left.Destroy()
         self.right.Destroy()
 
-    def GrabImagePIL(self, transpose = None):
+    def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
 
-        pil_left, timestamp_left = self.left.GrabImagePIL()
-        pil_right, timestamp_right = self.right.GrabImagePIL()
+        pil_left, timestamp_left = self.left.GrabImagePIL(bypass = bypass)
+        pil_right, timestamp_right = self.right.GrabImagePIL(bypass = bypass)
 
         delta = abs(timestamp_left - timestamp_right)
 
@@ -326,9 +326,9 @@ class ContextPair(object):
 
         return pil_left, pil_right, timestamp_left, timestamp_right
 
-    def GrabImageCV(self, transpose = None):
-        cv_left, timestamp_left = self.left.GrabImageCV()
-        cv_right, timestamp_right = self.right.GrabImageCV()
+    def GrabImageCV(self, transpose = None, bypass = False):
+        cv_left, timestamp_left = self.left.GrabImageCV(bypass = bypass)
+        cv_right, timestamp_right = self.right.GrabImageCV(bypass = bypass)
 
         delta = abs(timestamp_left - timestamp_right)
 
@@ -370,11 +370,11 @@ class Context3D(object):
         self.left.Destroy()
         self.right.Destroy()
 
-    def GrabImagePIL(self, transpose = None):  
+    def GrabImagePIL(self, transpose = None, bypass = False):  
         import Image as PILImage
 
-        pil_left, timestamp_left = self.left.GrabImagePIL()
-        pil_right, timestamp_right = self.right.GrabImagePIL()
+        pil_left, timestamp_left = self.left.GrabImagePIL(bypass = bypass)
+        pil_right, timestamp_right = self.right.GrabImagePIL(bypass = bypass)
         
         size_left = pil_left.size
         size_right = pil_right.size
@@ -479,7 +479,7 @@ cdef class Context(object):
 
         return A.reshape((image.iRows, image.iCols ))        
 
-    def GrabImagePIL(self, transpose = None):
+    def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
@@ -493,41 +493,46 @@ cdef class Context(object):
 
         timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
 
+        width, height = image.iCols, image.iRows  
+
         st = time.clock()
 
         # if we got a raw colour image (from a chameleon C)
         # we need to turn it into RGB
-        if image.pixelFormat == FLYCAPTURE_RAW8:                
-            # calculate the size (in bytes) of the image
-            width, height = image.iCols, image.iRows        
-            size = width * height * 3 
+        if image.pixelFormat == FLYCAPTURE_RAW8:
 
-            # allocate the space for the converted image
-            convert_buffer = <unsigned char *> malloc(size)
+            if bypass:
+                size = width * height            
+                py_string = image.pData[:size]
+                pil_image = PILImage.fromstring('L', (width,height), py_string)
+            else:
+                # calculate the size (in bytes) of the image      
+                size = width * height * 3 
 
-            # set the relevant fields of the fly capture image structure
-            #  1) the desired pixel format (BGR in our case)
-            #  2) the image data buffer points to our allocated array
-            converted.pixelFormat = FLYCAPTURE_BGR
-            converted.pData = convert_buffer
+                # allocate the space for the converted image
+                convert_buffer = <unsigned char *> malloc(size)
 
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGR in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGR
+                converted.pData = convert_buffer
 
-            # perform the conversion
-            errcheck(flycaptureConvertImage(self._context, &image, &converted))
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
 
+                # turn the data buffer into a Python string            
+                byte_length = size
+                py_string = convert_buffer[:byte_length]
+                
+                # perform the creation of the PIL Image
+                pil_image = PILImage.fromstring('RGB', (width, height), py_string)
 
+                # free the temp buffer            
+                free(convert_buffer)
 
-            # turn the data buffer into a Python string            
-            byte_length = size
-            py_string = convert_buffer[:byte_length]
-            
-            # perform the creation of the PIL Image
-            pil_image = PILImage.fromstring('RGB', (width, height), py_string)
-
-            # free the temp buffer            
-            free(convert_buffer)
-
-        elif image.pixelFormat == FLYCAPTURE_MONO8:                
+        elif image.pixelFormat == FLYCAPTURE_MONO8:   
+        
             # calculate the size (in bytes) of the image        
             width, height = image.iCols, image.iRows
             size = width * height
@@ -563,7 +568,7 @@ cdef class Context(object):
         pil_image = PILImage.fromstring('I;16', (width, height), py_string)
         return pil_image
 
-    def GrabImageCV(self, transpose = None):
+    def GrabImageCV(self, transpose = None, bypass = False):
         import cv
         cdef FlyCaptureImage image
         cdef FlyCaptureImage converted
@@ -577,38 +582,48 @@ cdef class Context(object):
 
         timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
 
+        width, height = image.iCols, image.iRows  
+
         st = time.clock()
 
         # if we got a raw colour image (from a chameleon C)
         # we need to turn it into RGB
-        if image.pixelFormat == FLYCAPTURE_RAW8:                
-            # calculate the size (in bytes) of the image
-            width, height = image.iCols, image.iRows        
-            size = width * height * 3 
+        if image.pixelFormat == FLYCAPTURE_RAW8:  
+            if bypass:
+                size = width * height            
+                py_string = image.pData[:size]
 
-            # allocate the space for the converted image
-            convert_buffer = <unsigned char *> malloc(size)
+                step = converted.iRowInc            
+                cv_image = cv.CreateImageHeader((width, height),
+                                                 cv.IPL_DEPTH_8U, 1)
+                cv.SetData(cv_image, py_string, step)
+            else:        
+                # calculate the size (in bytes) of the image
+                size = width * height * 3 
 
-            # set the relevant fields of the fly capture image structure
-            #  1) the desired pixel format (BGR in our case)
-            #  2) the image data buffer points to our allocated array
-            converted.pixelFormat = FLYCAPTURE_BGR
-            converted.pData = convert_buffer
+                # allocate the space for the converted image
+                convert_buffer = <unsigned char *> malloc(size)
 
-            # perform the conversion
-            errcheck(flycaptureConvertImage(self._context, &image, &converted))
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGR in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGR
+                converted.pData = convert_buffer
 
-            # turn the data buffer into a Python string            
-            byte_length = size
-            py_string = convert_buffer[:byte_length]
-            
-            step = converted.iRowInc            
-            cv_image = cv.CreateImageHeader((width, height),
-                                             cv.IPL_DEPTH_8U, 3)
-            cv.SetData(cv_image, py_string, step)
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
 
-            # free the temp buffer            
-            free(convert_buffer)
+                # turn the data buffer into a Python string            
+                byte_length = size
+                py_string = convert_buffer[:byte_length]
+                
+                step = converted.iRowInc            
+                cv_image = cv.CreateImageHeader((width, height),
+                                                 cv.IPL_DEPTH_8U, 3)
+                cv.SetData(cv_image, py_string, step)
+
+                # free the temp buffer            
+                free(convert_buffer)
 
         elif image.pixelFormat == FLYCAPTURE_MONO8:
             # calculate the size (in bytes) of the image
