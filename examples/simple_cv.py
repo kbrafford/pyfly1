@@ -1,4 +1,4 @@
-
+import time
 import pyfly1
 import cv
 from pyfly1 import Context, FCColorMethod, FCVideoMode, FCFrameRate
@@ -16,8 +16,14 @@ def main():
     print "Starting video mode"
     context.Start(video_mode, frame_rate)
 
-    print "grabbing image"    
-    cvimage, timestamp = context.GrabImageCV(bypass = True)
+    print "Sleeping for a bit"
+    time.sleep(.1)
+
+    start_time = time.clock()    
+    print "grabbing image (Bypass == False)"    
+    cvimage, timestamp = context.GrabImageCV(bypass = False)
+    duration = time.clock() - start_time
+    print "image acquired in %.5fms" % (duration / 1000.0)
 
     print "saving image"    
     cv.SaveImage("image.png", cvimage)
