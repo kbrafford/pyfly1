@@ -593,7 +593,7 @@ cdef class Context(object):
                 size = width * height            
                 py_string = image.pData[:size]
 
-                step = converted.iRowInc            
+                step = image.iRowInc
                 cv_image = cv.CreateImageHeader((width, height),
                                                  cv.IPL_DEPTH_8U, 1)
                 cv.SetData(cv_image, py_string, step)
