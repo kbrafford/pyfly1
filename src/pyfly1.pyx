@@ -677,6 +677,7 @@ cdef class Context(object):
         cdef int auto_i
         cdef int a 
         cdef int b
+
         errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push_i, &on_off_i, &auto_i, &a, &b))
         
         one_push = True if one_push_i is not 0 else False
@@ -685,13 +686,22 @@ cdef class Context(object):
         
         return (one_push, on_off, auto, a, b)
 
-    def SetCameraPropertyEx(self, FlyCaptureProperty key, bint one_push=False, bint on_off=False,
-                            bint auto=False,  int a=-1, b=-1):
+    def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None,  int a=-1, b=-1):
+        cdef int one_push_i
+        cdef int on_off_i
+        cdef int auto_i
+
         values = self.GetCameraPropertyEx(key)
+
         one_push = values[0] if one_push is None else one_push
         on_off = values[1] if on_off is None else on_off
         auto = values[2] if auto is None else auto
+
+        one_push_i = 1 if one_push else 0
+        on_off_i = 1 if on_off else 0
+        auto_i = 1 if auto else 0
+
         a = values[3] if a is -1 else a
         b = values[4] if b is -1 else b
-        print key, one_push, on_off, auto, a, b
-        errcheck(flycaptureSetCameraPropertyEx(self._context, key,one_push, on_off, auto, a, b))
+        
+        errcheck(flycaptureSetCameraPropertyEx(self._context, key,one_push_i, on_off_i, auto_i, a, b))
