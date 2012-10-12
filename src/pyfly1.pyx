@@ -341,7 +341,17 @@ class ContextPair(object):
                 cv_left, timestamp_left = self.left.GrabImageCV()
 
         return cv_left, cv_right, timestamp_left, timestamp_right
+    
+    def GetCameraPropertyEx(self,key):
+        left_one_push, left_on_off, left_auto, left_a, left_b = self.left.GetCameraPropertyEx(key)
+        right_one_push, right_on_off, right_auto, right_a, right_b = self.right.GetCameraPropertyEx(key)
+        return ((left_one_push, left_on_off, left_auto, left_a, left_b) , (right_one_push, right_on_off, right_auto, right_a, right_b) )
         
+    def SetCameraPropertyTopEx(self, key, one_push=False, on_off=False, auto=False, a=-1, b=-1):
+        self.left.SetCameraPropertyEx(key, one_push=one_push, on_off=on_off, auto=auto, a= a, b=b)
+ 
+    def SetCameraPropertyBottEx(self, key, one_push=False, on_off=False, auto=False, a=-1, b=-1):
+        self.right.SetCameraPropertyEx(key, one_push=one_push, on_off=on_off, auto=auto, a= a, b=b)
         
 #
 # 3D Context
@@ -396,8 +406,9 @@ class Context3D(object):
         pil_image = PILImage.merge("RGB", (red, green, blue))
 
         return pil_image, timestamp_left
-
     
+
+                            
 # Context Functions
 cdef class Context(object):
     cdef FlyCaptureContext _context
@@ -593,10 +604,13 @@ cdef class Context(object):
                 size = width * height            
                 py_string = image.pData[:size]
 
-                step = converted.iRowInc            
+                step = image.iRowInc
+                print "Step = %d" % step
+                #print "nChannels = %d" % image.iNumImages
                 cv_image = cv.CreateImageHeader((width, height),
                                                  cv.IPL_DEPTH_8U, 1)
                 cv.SetData(cv_image, py_string, step)
+                print "nChannels = %d" % cv_image.nChannels
             else:        
                 # calculate the size (in bytes) of the image
                 size = width * height * 3 
@@ -660,12 +674,17 @@ cdef class Context(object):
         return None
 
     def GetCameraPropertyEx(self, FlyCaptureProperty key):
-        cdef bint one_push
-        cdef bint on_off
-        cdef bint auto
+        cdef int one_push_i
+        cdef int on_off_i
+        cdef int auto_i
         cdef int a 
         cdef int b
         errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push, &on_off, &auto, &a, &b))
+        
+        one_push = True if one_push_i is not 0 else False
+        on_off = True if on_off_i is not 0 else False
+        auto = True if auto_i is not 0 else False
+        
         return (one_push, on_off, auto, a, b)
 
     def SetCameraPropertyEx(self, FlyCaptureProperty key, bint one_push=False, bint on_off=False,
@@ -676,4 +695,5 @@ cdef class Context(object):
         auto = values[2] if auto is None else auto
         a = values[3] if a is -1 else a
         b = values[4] if b is -1 else b
+        print key, one_push, on_off, auto, a, b
         errcheck(flycaptureSetCameraPropertyEx(self._context, key,one_push, on_off, auto, a, b))
