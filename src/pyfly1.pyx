@@ -686,7 +686,7 @@ cdef class Context(object):
         
         return (one_push, on_off, auto, a, b)
 
-    def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None,  int a=-1, b=-1):
+    def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None, a=-1, b=-1):
         cdef int one_push_i
         cdef int on_off_i
         cdef int auto_i

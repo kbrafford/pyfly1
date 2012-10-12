@@ -256,7 +256,7 @@ cdef extern from "PGRFlyCapture.h":
     FlyCaptureError flycaptureSetCameraPropertyBroadcast(   FlyCaptureContext  context,   FlyCaptureProperty cameraProperty,   long   lValueA,   long   lValueB,   bint   bAuto )
     FlyCaptureError flycaptureGetCameraPropertyRangeEx(   FlyCaptureContext    context,   FlyCaptureProperty   cameraProperty,   bint*    pbPresent,   bint*    pbOnePush,   bint*    pbReadOut,   bint*    pbOnOff,   bint*    pbAuto,   bint*  pbManual,   int* piMin,   int* piMax )
     FlyCaptureError flycaptureGetCameraPropertyEx(    FlyCaptureContext   context,    FlyCaptureProperty  cameraProperty,    bint*   pbOnePush,    bint*   pbOnOff,    bint*   pbAuto,    int*    piValueA,    int*    piValueB )
-    FlyCaptureError flycaptureSetCameraPropertyEx(    FlyCaptureContext    context,    FlyCaptureProperty   cameraProperty,    bint bOnePush,    bint bOnOff,    bint bAuto,    intiValueA,    intiValueB )
+    FlyCaptureError flycaptureSetCameraPropertyEx(    FlyCaptureContext    context,    FlyCaptureProperty   cameraProperty,   OnePush,    bOnOff,     bAuto,  intiValueA,    intiValueB )
     FlyCaptureError flycaptureSetCameraPropertyBroadcastEx( FlyCaptureContext    context, FlyCaptureProperty   cameraProperty, bint bOnePush, bint bOnOff, bint bAuto, intiValueA, intiValueB )
     FlyCaptureError flycaptureGetCameraAbsPropertyRange(  FlyCaptureContext  context,  FlyCaptureProperty cameraProperty,  bint*  pbPresent,  float* pfMin,  float* pfMax,   char** ppszUnits,   char** ppszUnitAbbr )
     FlyCaptureError flycaptureGetCameraAbsProperty( FlyCaptureContext   context, FlyCaptureProperty  cameraProperty, float*  pfValue )
