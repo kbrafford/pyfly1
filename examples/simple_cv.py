@@ -1,53 +1,43 @@
-import cv
+import time
 import pyfly1
-import wx
+import cv
+from pyfly1 import Context, FCColorMethod, FCVideoMode, FCFrameRate
 
-class Panel(wx.Panel):
-    def __init__(self, parent, context):
-        super(Panel, self).__init__(parent, -1)
-        self.context = context
-        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-        self.update()
-        # set up pause here
-        self.imageBgnd, timestamp = self.context.GrabImageCV()
-    def update(self):
-        self.Refresh()
-        self.Update()
-        wx.CallLater(1, self.update)
-    def create_bitmap(self):
-        image, timestamp = self.context.GrabImageCV()
-        #cv.Sub(image,self.imageBgnd,image) #find background
-        width, height = cv.GetSize(image)
-        data = image.tostring()
-        bitmap = wx.BitmapFromBuffer(width, height, data)
-        return bitmap
-    def on_paint(self, event):
-        bitmap = self.create_bitmap()
-        self.GetParent().check_size(bitmap.GetSize())
-        dc = wx.AutoBufferedPaintDC(self)
-        dc.DrawBitmap(bitmap, 0, 0)
+def main():    
+    video_mode = FCVideoMode._1280x960Y8
+    frame_rate = FCFrameRate._15
 
-class Frame(wx.Frame):
-    def __init__(self, context):
-        style = wx.DEFAULT_FRAME_STYLE & ~wx.RESIZE_BORDER & ~wx.MAXIMIZE_BOX
-        super(Frame, self).__init__(None, -1, 'FlyCapture', style=style)
-        Panel(self, context)
-    def check_size(self, size):
-        if self.GetClientSize() != size:
-            self.SetClientSize(size)
-            self.Center()
+    print "Getting context"
+    context = Context.from_index(0)
+    
+    print "Setting color mode"
+    context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
+    
+    print "Starting video mode"
+    context.Start(video_mode, frame_rate)
 
-def main():
-    context = pyfly1.Context.from_index(0)
-    context.SetColorProcessingMethod(pyfly1.FCColorMethod.EDGE_SENSING)
-    context.Start(pyfly1.FCVideoMode._1280x960Y8, pyfly1.FCFrameRate._15)
-    app = wx.App(None)
-    frame = Frame(context)
-    frame.Center()
-    frame.Show()
-    app.MainLoop()
+    print "Sleeping for a bit"
+    time.sleep(.1)
+
+    start_time = time.clock()    
+    print "grabbing image (Bypass == True)"    
+    cvimage, timestamp = context.GrabImageCV(bypass = True)
+    duration = time.clock() - start_time
+    print "image acquired in %.5fms" % (duration * 1000.0)
+
+    for i in range(10):
+        start_time = time.clock()    
+        print "grabbing another image (Bypass == True)"    
+        cvimage, timestamp = context.GrabImageCV(bypass = True)
+        duration = time.clock() - start_time
+        print "image acquired in %.5fms" % (duration * 1000.0)
+
+    print "saving image"    
+    cv.SaveImage("image.png", cvimage)
+
+    print "shutting down"    
     context.Stop()
+    context.Destroy()
 
-if __name__ == '__main__':
+if __name__ == '__main__':    
     main()

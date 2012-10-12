@@ -605,8 +605,6 @@ cdef class Context(object):
                 py_string = image.pData[:size]
 
                 step = image.iRowInc
-                print "Step = %d" % step
-                #print "nChannels = %d" % image.iNumImages
                 cv_image = cv.CreateImageHeader((width, height),
                                                  cv.IPL_DEPTH_8U, 1)
                 cv.SetData(cv_image, py_string, step)
