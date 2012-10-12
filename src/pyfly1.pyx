@@ -677,7 +677,7 @@ cdef class Context(object):
         cdef int auto_i
         cdef int a 
         cdef int b
-        errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push, &on_off, &auto, &a, &b))
+        errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push_i, &on_off_i, &auto_i, &a, &b))
         
         one_push = True if one_push_i is not 0 else False
         on_off = True if on_off_i is not 0 else False
