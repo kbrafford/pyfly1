@@ -30,7 +30,7 @@ class Panel(wx.Panel):
         wx.CallLater(5, self.update)
 
     def create_bitmap(self):
-        image, timestamp = self.context.GrabImagePIL(bypass = True)
+        image, timestamp = self.context.GrabImagePIL(bypass = False)
         print self.my_index, timestamp
         image = image.resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         #image = self.context.GrabImagePIL(transpose = Image.FLIP_TOP_BOTTOM)

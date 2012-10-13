@@ -708,3 +708,26 @@ cdef class Context(object):
         b = values.b if b == -1 else b
         
         errcheck(flycaptureSetCameraPropertyEx(self._context, key, one_push_i, on_off_i, auto_i, a, b))
+
+    def GetCameraPropertyRangeEx(self, FlyCaptureProperty key):
+        cdef int present_i
+        cdef int one_push_i
+        cdef int readout_i
+        cdef int on_off_i
+        cdef int auto_i
+        cdef int manual_i
+        cdef int min_i
+        cdef int max_i
+
+        errcheck(flycaptureGetCameraPropertyRangeEx(self._context, key, &present_i, &one_push_i, &readout_i, &on_off_i, &auto_i, &manual_i, &min_i, &max_i))
+
+        present = present_i != 0
+        one_push = one_push_i != 0
+        readout = readout_i != 0
+        on_off = on_off_i != 0
+        auto = auto_i != 0
+        manual = manual_i != 0
+
+        from collections import namedtuple
+        Property = namedtuple("Property", "present one_push readout on_off auto manual imin imax")
+        return Property(present, one_push, readout, on_off, auto, manual, min_i, max_i)
