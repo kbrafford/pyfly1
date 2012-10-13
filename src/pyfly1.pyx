@@ -679,29 +679,32 @@ cdef class Context(object):
         cdef int b
 
         errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push_i, &on_off_i, &auto_i, &a, &b))
-        
-        one_push = True if one_push_i is not 0 else False
-        on_off = True if on_off_i is not 0 else False
-        auto = True if auto_i is not 0 else False
-        
-        return (one_push, on_off, auto, a, b)
+
+        one_push = one_push_i != 0
+        on_off = on_off_i != 0
+        auto = auto_i != 0
+
+        from collections import namedtuple
+        Property = namedtuple("Property", "one_push on_off auto a b")
+        return Property(one_push, on_off, auto, a, b)
 
     def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None, a=-1, b=-1):
+
         cdef int one_push_i
         cdef int on_off_i
         cdef int auto_i
 
         values = self.GetCameraPropertyEx(key)
 
-        one_push = values[0] if one_push is None else one_push
-        on_off = values[1] if on_off is None else on_off
-        auto = values[2] if auto is None else auto
+        one_push = values.one_push if one_push == None else one_push
+        on_off = values.on_off if on_off == None else on_off
+        auto = values.auto if auto == None else auto
 
         one_push_i = 1 if one_push else 0
         on_off_i = 1 if on_off else 0
         auto_i = 1 if auto else 0
 
-        a = values[3] if a is -1 else a
-        b = values[4] if b is -1 else b
+        a = values.a if a == -1 else a
+        b = values.b if b == -1 else b
         
-        errcheck(flycaptureSetCameraPropertyEx(self._context, key,one_push_i, on_off_i, auto_i, a, b))
+        errcheck(flycaptureSetCameraPropertyEx(self._context, key, one_push_i, on_off_i, auto_i, a, b))
