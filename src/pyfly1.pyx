@@ -19,11 +19,11 @@ class ImageReturnType(object):
 
 class Stopwatch(object):
     def __init__(self):
-        self.start = time.time()
+        self.start = time.clock()
     def restart(self):
-        self.start = time.time()
+        self.start = time.clock()
     def elapsed(self):
-        return time.time() - self.start
+        return time.clock() - self.start
 
 class FCProperty(object):
     """An enumeration of the different camera properties that can be set via
