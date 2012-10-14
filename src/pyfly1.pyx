@@ -237,7 +237,7 @@ cdef inline bint errcheck(FlyCaptureError result) except True:
     if is_error:
         raise FCError(result)
     return is_error
-
+            
 def get_camera_count():
     cdef unsigned int camera_count
     errcheck(flycaptureBusCameraCount( &camera_count))
@@ -308,6 +308,24 @@ class ContextPair(object):
         self.left.Destroy()
         self.right.Destroy()
 
+        
+    def GrabImageNP(self, transpose = None, bypass = False):
+        np_left, timestamp_left = self.left.GrabImageNP(bypass = bypass)
+        np_right, timestamp_right = self.right.GrabImageNP(bypass = bypass)
+
+        delta = abs(timestamp_left - timestamp_right)
+
+        if delta > self.THRESHOLD:
+            if timestamp_left > timestamp_right:
+                # left is newer
+                np_right, timestamp_right = self.right.GrabImageNP(bypass = bypass)
+            else:
+                # right is newer
+                np_left, timestamp_left = self.left.GrabImageNP(bypass = bypass)
+
+        return np_left, np_right, timestamp_left, timestamp_right
+
+        
     def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
 
@@ -463,19 +481,49 @@ cdef class Context(object):
         errcheck(flycaptureSetColorProcessingMethod(
             self._context, method))
 
-    def GrabImageNP(self):
-        import numpy as np
+    def GrabImageNP(self, bypass = False):
         cdef FlyCaptureImage image
+        cdef FlyCaptureImage converted
+        cdef bytes py_string
+        cdef unsigned char *convert_buffer
+        import numpy as np
 
         # grab the image
         errcheck(flycaptureGrabImage2(self._context, &image))
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
+
         iRows, iCols = image.iRows, image.iCols        
         size = iRows * iCols
 
-        if image.pixelFormat in (FLYCAPTURE_MONO8, FLYCAPTURE_RAW8):
-            # 8 bits of data per pixel
-            A = numpy.frombuffer(image.pData[:size],dtype='uint8')
+        st = time.clock()
 
+        if image.pixelFormat == FLYCAPTURE_MONO8:
+            # 8 bits of data per pixel, monochrome    
+            A = numpy.frombuffer(image.pData[:size],dtype='uint8')
+        elif image.pixelFormat == FLYCAPTURE_RAW8:
+            # 8 bits of data per pixel, colour
+            if bypass:
+                A = numpy.frombuffer(image.pData[:size],dtype='uint8')
+            else:
+                # allocate the space for the converted image
+                size *= 4
+                convert_buffer = <unsigned char *> malloc(size)
+
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGRU in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGRU
+                converted.pData = convert_buffer
+
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
+                
+                # perform the creation of the Numpy Array
+                A = numpy.frombuffer(converted.pData[:size],dtype='uint32')
+
+                # free the temp buffer            
+                free(convert_buffer)
+            
         elif image.pixelFormat in (FLYCAPTURE_MONO16, FLYCAPTURE_RAW16):
             # 16 bits of data per pixel            
             A = numpy.frombuffer(image.pData[:size*2],dtype='uint16')
@@ -488,7 +536,10 @@ cdef class Context(object):
             # 32 bits of data per pixel            
             A = numpy.frombuffer(image.pData[:size*4],dtype='uint32')
 
-        return A.reshape((image.iRows, image.iCols ))        
+        end= time.clock()
+        print "elapsed: %f" % (end - st)
+
+        return A.reshape((image.iRows, image.iCols )) , timestamp        
 
     def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
@@ -608,7 +659,7 @@ cdef class Context(object):
                 cv_image = cv.CreateImageHeader((width, height),
                                                  cv.IPL_DEPTH_8U, 1)
                 cv.SetData(cv_image, py_string, step)
-                print "nChannels = %d" % cv_image.nChannels
+
             else:        
                 # calculate the size (in bytes) of the image
                 size = width * height * 3 
@@ -660,7 +711,7 @@ cdef class Context(object):
             cv.Flip(cv_image)
 
         end= time.clock()
-        #print "elapsed: %f" % (end - st)
+        print "elapsed: %f" % (end - st)
 
         return cv_image, timestamp
 
