@@ -4,7 +4,7 @@ import ImageDraw
 import ImageFont
 import time
 import pyfly1
-from pyfly1 import Context, Context3D, FCColorMethod, FCVideoMode, FCFrameRate
+from pyfly1 import Context, FCColorMethod, FCVideoMode, FCFrameRate
 
 class Panel(wx.Panel):
     def __init__(self, parent, context, my_index, font, update_rate = 1.0):
@@ -30,7 +30,7 @@ class Panel(wx.Panel):
         wx.CallLater(5, self.update)
 
     def create_bitmap(self):
-        image, timestamp = self.context.GrabImagePIL(bypass = False)
+        image, timestamp, acq, post = self.context.GrabImagePIL(bypass = False)
         print self.my_index, timestamp
         image = image.resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         #image = self.context.GrabImagePIL(transpose = Image.FLIP_TOP_BOTTOM)
@@ -105,15 +105,6 @@ def main():
         context.Start(video_mode, frame_rate)
         contexts.append((context,serial))
  
-    if len(camera_info_list) == 2:
-        choice = raw_input("Would you like to run in 3D mode? (y/N)")
-        
-        if choice in ("Y", "y", "yes", "Yes"):
-            context,serial = Context3D(), "Two Cameras"
-            context.SetColorProcessingMethod(FCColorMethod.EDGE_SENSING)
-            context.Start(video_mode, frame_rate)
-            contexts = [(context, serial)]
-
     # now start the wx GUI
     app = wx.App(None)
     frame = Frame(contexts)
