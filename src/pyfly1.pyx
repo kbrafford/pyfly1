@@ -10,6 +10,20 @@ from libc.stdlib cimport malloc, free
 import time      
 import numpy
 cimport numpy as np
+from collections import namedtuple
+
+class ImageReturnType(object):
+    NP = namedtuple("pf1_NP_image", "image timestamp acq_time post_time")
+    CV = namedtuple("pf1_CV_image", "image timestamp acq_time post_time")
+    PIL = namedtuple("pf1_PIL_image", "image timestamp acq_time post_time")
+
+class Stopwatch(object):
+    def __init__(self):
+        self.start = time.time()
+    def restart(self):
+        self.start = time.time()
+    def elapsed(self):
+        return time.time() - self.start
 
 class FCProperty(object):
     """An enumeration of the different camera properties that can be set via
@@ -310,55 +324,53 @@ class ContextPair(object):
 
         
     def GrabImageNP(self, transpose = None, bypass = False):
-        np_left, timestamp_left = self.left.GrabImageNP(bypass = bypass)
-        np_right, timestamp_right = self.right.GrabImageNP(bypass = bypass)
+        left = self.left.GrabImageNP(bypass = bypass)
+        right = self.right.GrabImageNP(bypass = bypass)
 
-        delta = abs(timestamp_left - timestamp_right)
+        delta = abs(left.timestamp - right.timestamp)
 
         if delta > self.THRESHOLD:
-            if timestamp_left > timestamp_right:
+            if left.timestamp > right.timestamp:
                 # left is newer
-                np_right, timestamp_right = self.right.GrabImageNP(bypass = bypass)
+                right = self.right.GrabImageNP(bypass = bypass)
             else:
                 # right is newer
-                np_left, timestamp_left = self.left.GrabImageNP(bypass = bypass)
+                left = self.left.GrabImageNP(bypass = bypass)
 
-        return np_left, np_right, timestamp_left, timestamp_right
+        return left, right
 
-        
+
     def GrabImagePIL(self, transpose = None, bypass = False):
-        import Image as PILImage
+        left = self.left.GrabImagePIL(bypass = bypass)
+        right = self.right.GrabImagePIL(bypass = bypass)
 
-        pil_left, timestamp_left = self.left.GrabImagePIL(bypass = bypass)
-        pil_right, timestamp_right = self.right.GrabImagePIL(bypass = bypass)
-
-        delta = abs(timestamp_left - timestamp_right)
+        delta = abs(left.timestamp - right.timestamp)
 
         if delta > self.THRESHOLD:
-            if timestamp_left > timestamp_right:
+            if left.timestamp > right.timestamp:
                 # left is newer
-                pil_right, timestamp_right = self.right.GrabImagePIL()
+                right = self.right.GrabImagePIL(bypass = bypass)
             else:
                 # right is newer
-                pil_left, timestamp_left = self.left.GrabImagePIL()
+                left = self.left.GrabImagePIL(bypass = bypass)
 
-        return pil_left, pil_right, timestamp_left, timestamp_right
+        return left, right
 
     def GrabImageCV(self, transpose = None, bypass = False):
-        cv_left, timestamp_left = self.left.GrabImageCV(bypass = bypass)
-        cv_right, timestamp_right = self.right.GrabImageCV(bypass = bypass)
+        left = self.left.GrabImageCV(bypass = bypass)
+        right = self.right.GrabImageCV(bypass = bypass)
 
-        delta = abs(timestamp_left - timestamp_right)
+        delta = abs(left.timestamp - right.timestamp)
 
         if delta > self.THRESHOLD:
-            if timestamp_left > timestamp_right:
+            if left.timestamp > right.timestamp:
                 # left is newer
-                cv_right, timestamp_right = self.right.GrabImageCV()
+                right = self.right.GrabImageCV(bypass = bypass)
             else:
                 # right is newer
-                cv_left, timestamp_left = self.left.GrabImageCV()
+                left = self.left.GrabImageCV(bypass = bypass)
 
-        return cv_left, cv_right, timestamp_left, timestamp_right
+        return left, right
     
     def GetCameraPropertyEx(self,key):
         left_one_push, left_on_off, left_auto, left_a, left_b = self.left.GetCameraPropertyEx(key)
@@ -371,60 +383,6 @@ class ContextPair(object):
     def SetCameraPropertyBottEx(self, key, one_push=False, on_off=False, auto=False, a=-1, b=-1):
         self.right.SetCameraPropertyEx(key, one_push=one_push, on_off=on_off, auto=auto, a= a, b=b)
         
-#
-# 3D Context
-#
-class Context3D(object):    
-    def __init__(self):
-        self.left = Context.from_index(1)
-        self.right = Context.from_index(0)
-       
-    def SetColorProcessingMethod(self, method):
-        self.left.SetColorProcessingMethod(method)
-        self.right.SetColorProcessingMethod(method)
-
-    def Start(self, video_mode, frame_rate, stipple_pattern = FCStippleFormat.GRBG):
-        self.left.Start(video_mode, frame_rate, stipple_pattern)
-        self.right.Start(video_mode, frame_rate, stipple_pattern)
-
-    def Stop(self):
-        self.left.Stop()
-        self.right.Stop()
-
-    def __del__(self):
-        self.Destroy()
-
-    def Destroy(self):
-        self.left.Destroy()
-        self.right.Destroy()
-
-    def GrabImagePIL(self, transpose = None, bypass = False):  
-        import Image as PILImage
-
-        pil_left, timestamp_left = self.left.GrabImagePIL(bypass = bypass)
-        pil_right, timestamp_right = self.right.GrabImagePIL(bypass = bypass)
-        
-        size_left = pil_left.size
-        size_right = pil_right.size
-        
-        if size_right != size_left:
-            pil_right = pil_right.resize(size_left, PILImage.BILINEAR)
-
-        if pil_left.mode == "L":
-            red = pil_left
-        else:
-            red,g,b = pil_left.split()
-            
-        if pil_right.mode == "L":
-            green = pil_right
-            blue = pil_right
-        else:
-            r,green,blue = pil_right.split()
-
-        pil_image = PILImage.merge("RGB", (red, green, blue))
-
-        return pil_image, timestamp_left
-    
 
                             
 # Context Functions
@@ -444,6 +402,8 @@ cdef class Context(object):
         return context
 
     def __init__(self):
+        from collections import namedtuple
+
         errcheck(flycaptureCreateContext(&self._context))
 
     def __del__(self):
@@ -480,240 +440,6 @@ cdef class Context(object):
     def SetColorProcessingMethod(self, method):
         errcheck(flycaptureSetColorProcessingMethod(
             self._context, method))
-
-    def GrabImageNP(self, bypass = False):
-        cdef FlyCaptureImage image
-        cdef FlyCaptureImage converted
-        cdef bytes py_string
-        cdef unsigned char *convert_buffer
-        import numpy as np
-
-        # grab the image
-        errcheck(flycaptureGrabImage2(self._context, &image))
-        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
-
-        iRows, iCols = image.iRows, image.iCols        
-        size = iRows * iCols
-
-        st = time.clock()
-
-        if image.pixelFormat == FLYCAPTURE_MONO8:
-            # 8 bits of data per pixel, monochrome    
-            A = numpy.frombuffer(image.pData[:size],dtype='uint8')
-        elif image.pixelFormat == FLYCAPTURE_RAW8:
-            # 8 bits of data per pixel, colour
-            if bypass:
-                A = numpy.frombuffer(image.pData[:size],dtype='uint8')
-            else:
-                # allocate the space for the converted image
-                size *= 4
-                convert_buffer = <unsigned char *> malloc(size)
-
-                # set the relevant fields of the fly capture image structure
-                #  1) the desired pixel format (BGRU in our case)
-                #  2) the image data buffer points to our allocated array
-                converted.pixelFormat = FLYCAPTURE_BGRU
-                converted.pData = convert_buffer
-
-                # perform the conversion
-                errcheck(flycaptureConvertImage(self._context, &image, &converted))
-                
-                # perform the creation of the Numpy Array
-                A = numpy.frombuffer(converted.pData[:size],dtype='uint32')
-
-                # free the temp buffer            
-                free(convert_buffer)
-            
-        elif image.pixelFormat in (FLYCAPTURE_MONO16, FLYCAPTURE_RAW16):
-            # 16 bits of data per pixel            
-            A = numpy.frombuffer(image.pData[:size*2],dtype='uint16')
-
-        elif image.pixelFormat in (FLYCAPTURE_BGR, FLYCAPTURE_RGB8, FLYCAPTURE_444YUV8):
-            # 24 bits of data per pixel            
-            A = numpy.frombuffer(image.pData[:size*3],dtype='uint24')
-
-        elif image.pixelFormat in (FLYCAPTURE_BGRU,):
-            # 32 bits of data per pixel            
-            A = numpy.frombuffer(image.pData[:size*4],dtype='uint32')
-
-        end= time.clock()
-        print "elapsed: %f" % (end - st)
-
-        return A.reshape((image.iRows, image.iCols )) , timestamp        
-
-    def GrabImagePIL(self, transpose = None, bypass = False):
-        import Image as PILImage
-        cdef FlyCaptureImage image
-        cdef FlyCaptureImage converted
-        cdef bytes py_string
-        cdef unsigned char *convert_buffer
-        cdef Py_ssize_t byte_length
-        cdef int size
-
-        # grab the image
-        errcheck(flycaptureGrabImage2(self._context, &image))
-
-        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
-
-        width, height = image.iCols, image.iRows  
-
-        st = time.clock()
-
-        # if we got a raw colour image (from a chameleon C)
-        # we need to turn it into RGB
-        if image.pixelFormat == FLYCAPTURE_RAW8:
-
-            if bypass:
-                size = width * height            
-                py_string = image.pData[:size]
-                pil_image = PILImage.fromstring('L', (width,height), py_string)
-            else:
-                # calculate the size (in bytes) of the image      
-                size = width * height * 3 
-
-                # allocate the space for the converted image
-                convert_buffer = <unsigned char *> malloc(size)
-
-                # set the relevant fields of the fly capture image structure
-                #  1) the desired pixel format (BGR in our case)
-                #  2) the image data buffer points to our allocated array
-                converted.pixelFormat = FLYCAPTURE_BGR
-                converted.pData = convert_buffer
-
-                # perform the conversion
-                errcheck(flycaptureConvertImage(self._context, &image, &converted))
-
-                # turn the data buffer into a Python string            
-                byte_length = size
-                py_string = convert_buffer[:byte_length]
-                
-                # perform the creation of the PIL Image
-                pil_image = PILImage.fromstring('RGB', (width, height), py_string)
-
-                # free the temp buffer            
-                free(convert_buffer)
-
-        elif image.pixelFormat == FLYCAPTURE_MONO8:   
-        
-            # calculate the size (in bytes) of the image        
-            width, height = image.iCols, image.iRows
-            size = width * height
-
-            # perform the creation of the PIL Image        
-            py_string = image.pData[0:size]
-            pil_image = PILImage.fromstring('L', (width, height), py_string)
-
-        # apply any transpose
-        if transpose:
-            pil_image = pil_image.transpose(transpose)
-
-
-        end= time.clock()
-        #print "elapsed: %f" % (end - st)
-
-        return pil_image, timestamp
-
-    def GrabImagePIL16(self):
-        import Image as PILImage    
-        cdef FlyCaptureImage image   
-        cdef bytes py_string
-        
-        # grab the image
-        errcheck(flycaptureGrabImage2(self._context, &image))
-        
-        # calculate the size (in bytes) of the image        
-        width, height = image.iCols, image.iRows
-        size = width * height * 2
-
-        # perform the creation of the PIL Image        
-        py_string = image.pData[0:size]
-        pil_image = PILImage.fromstring('I;16', (width, height), py_string)
-        return pil_image
-
-    def GrabImageCV(self, transpose = None, bypass = False):
-        import cv
-        cdef FlyCaptureImage image
-        cdef FlyCaptureImage converted
-        cdef bytes py_string
-        cdef unsigned char *convert_buffer
-        cdef Py_ssize_t byte_length
-        cdef int size
-
-        # grab the image
-        errcheck(flycaptureGrabImage2(self._context, &image))
-
-        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
-
-        width, height = image.iCols, image.iRows  
-
-        st = time.clock()
-
-        # if we got a raw colour image (from a chameleon C)
-        # we need to turn it into RGB
-        if image.pixelFormat == FLYCAPTURE_RAW8:  
-            if bypass:
-                size = width * height            
-                py_string = image.pData[:size]
-
-                step = image.iRowInc
-                cv_image = cv.CreateImageHeader((width, height),
-                                                 cv.IPL_DEPTH_8U, 1)
-                cv.SetData(cv_image, py_string, step)
-
-            else:        
-                # calculate the size (in bytes) of the image
-                size = width * height * 3 
-
-                # allocate the space for the converted image
-                convert_buffer = <unsigned char *> malloc(size)
-
-                # set the relevant fields of the fly capture image structure
-                #  1) the desired pixel format (BGR in our case)
-                #  2) the image data buffer points to our allocated array
-                converted.pixelFormat = FLYCAPTURE_BGR
-                converted.pData = convert_buffer
-
-                # perform the conversion
-                errcheck(flycaptureConvertImage(self._context, &image, &converted))
-
-                # turn the data buffer into a Python string            
-                byte_length = size
-                py_string = convert_buffer[:byte_length]
-                
-                step = converted.iRowInc            
-                cv_image = cv.CreateImageHeader((width, height),
-                                                 cv.IPL_DEPTH_8U, 3)
-                cv.SetData(cv_image, py_string, step)
-
-                # free the temp buffer            
-                free(convert_buffer)
-
-        elif image.pixelFormat == FLYCAPTURE_MONO8:
-            # calculate the size (in bytes) of the image
-            width, height = image.iCols, image.iRows        
-
-            # turn the data buffer into a Python string            
-            byte_length = width * height
-            py_string = image.pData[:byte_length]
-
-            # create the grayscale CV image            
-            step = image.iRowInc            
-            cv_image_gray = cv.CreateImageHeader((width, height),
-                                             cv.IPL_DEPTH_8U, 1)
-            cv.SetData(cv_image_gray, py_string, step)
-
-            # convert the CV grayscale image to an RBG image
-            cv_image = cv.CreateImage((width, height), cv.IPL_DEPTH_8U, 3)            
-            cv.CvtColor(cv_image_gray, cv_image, cv.CV_GRAY2RGB)
-
-        # apply any transpose
-        if transpose:
-            cv.Flip(cv_image)
-
-        end= time.clock()
-        print "elapsed: %f" % (end - st)
-
-        return cv_image, timestamp
 
     def LockNext(self):
         import Image as PILImage
@@ -782,3 +508,252 @@ cdef class Context(object):
         from collections import namedtuple
         Property = namedtuple("Property", "present one_push readout on_off auto manual imin imax")
         return Property(present, one_push, readout, on_off, auto, manual, min_i, max_i)
+        
+
+
+    def GrabImageNP(self, bypass = False):
+        cdef FlyCaptureImage image
+        cdef FlyCaptureImage converted
+        cdef bytes py_string
+        cdef unsigned char *convert_buffer
+        import numpy as np
+
+        # grab the image
+        stopwatch = Stopwatch()
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        acq_time = stopwatch.elapsed()
+
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
+
+        iRows, iCols = image.iRows, image.iCols        
+        size = iRows * iCols
+
+        stopwatch.restart()
+
+        if image.pixelFormat == FLYCAPTURE_MONO8:
+            # 8 bits of data per pixel, monochrome    
+            A = numpy.frombuffer(image.pData[:size],dtype='uint8')
+        elif image.pixelFormat == FLYCAPTURE_RAW8:
+            # 8 bits of data per pixel, colour
+            if bypass:
+                A = numpy.frombuffer(image.pData[:size],dtype='uint8')
+            else:
+                # allocate the space for the converted image
+                size *= 4
+                convert_buffer = <unsigned char *> malloc(size)
+
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGRU in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGRU
+                converted.pData = convert_buffer
+
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
+                
+                # perform the creation of the Numpy Array
+                A = numpy.frombuffer(converted.pData[:size],dtype='uint32')
+
+                # free the temp buffer            
+                free(convert_buffer)
+            
+        elif image.pixelFormat in (FLYCAPTURE_MONO16, FLYCAPTURE_RAW16):
+            # 16 bits of data per pixel            
+            A = numpy.frombuffer(image.pData[:size*2],dtype='uint16')
+
+        elif image.pixelFormat in (FLYCAPTURE_BGR, FLYCAPTURE_RGB8, FLYCAPTURE_444YUV8):
+            # 24 bits of data per pixel            
+            A = numpy.frombuffer(image.pData[:size*3],dtype='uint24')
+
+        elif image.pixelFormat in (FLYCAPTURE_BGRU,):
+            # 32 bits of data per pixel            
+            A = numpy.frombuffer(image.pData[:size*4],dtype='uint32')
+
+        post_time = stopwatch.elapsed()
+
+        return ImageReturnType.NP(A.reshape((image.iRows, image.iCols )), timestamp, acq_time, post_time)
+
+    def GrabImagePIL(self, transpose = None, bypass = False):
+        import Image as PILImage
+        cdef FlyCaptureImage image
+        cdef FlyCaptureImage converted
+        cdef bytes py_string
+        cdef unsigned char *convert_buffer
+        cdef Py_ssize_t byte_length
+        cdef int size
+
+        # grab the image
+        stopwatch = Stopwatch()
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        acq_time = stopwatch.elapsed()
+
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
+
+        width, height = image.iCols, image.iRows  
+
+        stopwatch.restart()
+
+        # if we got a raw colour image (from a chameleon C)
+        # we need to turn it into RGB
+        if image.pixelFormat == FLYCAPTURE_RAW8:
+
+            if bypass:
+                size = width * height            
+                py_string = image.pData[:size]
+                pil_image = PILImage.fromstring('L', (width,height), py_string)
+            else:
+                # calculate the size (in bytes) of the image      
+                size = width * height * 3 
+
+                # allocate the space for the converted image
+                convert_buffer = <unsigned char *> malloc(size)
+
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGR in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGR
+                converted.pData = convert_buffer
+
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
+
+                # turn the data buffer into a Python string            
+                byte_length = size
+                py_string = convert_buffer[:byte_length]
+                
+                # perform the creation of the PIL Image
+                pil_image = PILImage.fromstring('RGB', (width, height), py_string)
+
+                # free the temp buffer            
+                free(convert_buffer)
+
+        elif image.pixelFormat == FLYCAPTURE_MONO8:   
+        
+            # calculate the size (in bytes) of the image        
+            width, height = image.iCols, image.iRows
+            size = width * height
+
+            # perform the creation of the PIL Image        
+            py_string = image.pData[0:size]
+            pil_image = PILImage.fromstring('L', (width, height), py_string)
+
+        # apply any transpose
+        if transpose:
+            pil_image = pil_image.transpose(transpose)
+
+        post_time = stopwatch.elapsed()
+
+        return ImageReturnType.PIL(pil_image, timestamp, acq_time, post_time)
+
+    def GrabImagePIL16(self):
+        import Image as PILImage    
+        cdef FlyCaptureImage image   
+        cdef bytes py_string
+        
+        # grab the image
+        stopwatch = Stopwatch()
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        acq_time = stopwatch.elapsed()
+
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
+
+        stopwatch.restart()
+
+        # calculate the size (in bytes) of the image        
+        width, height = image.iCols, image.iRows
+        size = width * height * 2
+
+        # perform the creation of the PIL Image        
+        py_string = image.pData[0:size]
+        pil_image = PILImage.fromstring('I;16', (width, height), py_string)
+
+        post_time = stopwatch.elapsed()
+
+        return ImageReturnType.PIL(pil_image, timestamp, acq_time, post_time)
+
+    def GrabImageCV(self, transpose = None, bypass = False):
+        import cv
+        cdef FlyCaptureImage image
+        cdef FlyCaptureImage converted
+        cdef bytes py_string
+        cdef unsigned char *convert_buffer
+        cdef Py_ssize_t byte_length
+        cdef int size
+
+        # grab the image
+        stopwatch = Stopwatch()
+        errcheck(flycaptureGrabImage2(self._context, &image))
+        acq_time = stopwatch.elapsed()
+
+        timestamp = image.timeStamp.ulSeconds + (image.timeStamp.ulMicroSeconds / 1e6)
+
+        width, height = image.iCols, image.iRows  
+
+        stopwatch.restart()
+
+        # if we got a raw colour image (from a chameleon C)
+        # we need to turn it into RGB
+        if image.pixelFormat == FLYCAPTURE_RAW8:  
+            if bypass:
+                size = width * height            
+                py_string = image.pData[:size]
+
+                step = image.iRowInc
+                cv_image = cv.CreateImageHeader((width, height),
+                                                 cv.IPL_DEPTH_8U, 1)
+                cv.SetData(cv_image, py_string, step)
+
+            else:        
+                # calculate the size (in bytes) of the image
+                size = width * height * 3 
+
+                # allocate the space for the converted image
+                convert_buffer = <unsigned char *> malloc(size)
+
+                # set the relevant fields of the fly capture image structure
+                #  1) the desired pixel format (BGR in our case)
+                #  2) the image data buffer points to our allocated array
+                converted.pixelFormat = FLYCAPTURE_BGR
+                converted.pData = convert_buffer
+
+                # perform the conversion
+                errcheck(flycaptureConvertImage(self._context, &image, &converted))
+
+                # turn the data buffer into a Python string            
+                byte_length = size
+                py_string = convert_buffer[:byte_length]
+                
+                step = converted.iRowInc            
+                cv_image = cv.CreateImageHeader((width, height),
+                                                 cv.IPL_DEPTH_8U, 3)
+                cv.SetData(cv_image, py_string, step)
+
+                # free the temp buffer            
+                free(convert_buffer)
+
+        elif image.pixelFormat == FLYCAPTURE_MONO8:
+            # calculate the size (in bytes) of the image
+            width, height = image.iCols, image.iRows        
+
+            # turn the data buffer into a Python string            
+            byte_length = width * height
+            py_string = image.pData[:byte_length]
+
+            # create the grayscale CV image            
+            step = image.iRowInc            
+            cv_image_gray = cv.CreateImageHeader((width, height),
+                                             cv.IPL_DEPTH_8U, 1)
+            cv.SetData(cv_image_gray, py_string, step)
+
+            # convert the CV grayscale image to an RBG image
+            cv_image = cv.CreateImage((width, height), cv.IPL_DEPTH_8U, 3)            
+            cv.CvtColor(cv_image_gray, cv_image, cv.CV_GRAY2RGB)
+
+        # apply any transpose
+        if transpose:
+            cv.Flip(cv_image)
+
+        post_time = stopwatch.elapsed()
+
+        return ImageReturnType.CV(cv_image, timestamp, acq_time, post_time)
+
