@@ -64,10 +64,27 @@ class Panel(wx.Panel):
         dc = wx.AutoBufferedPaintDC(self)
         dc.DrawBitmap(bitmap, 0, 0)
 
+class ControlPanel(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent, -1)
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.auto_button = wx.CheckBox(self, -1, "Auto")
+        self.onoff_button = wx.CheckBox(self, -1, "On/Off")
+        self.sizer.AddStretchSpacer()
+        self.sizer.Add(self.auto_button, 0, wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.sizer.Add(self.onoff_button, 0, wx.RIGHT | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.SetSizerAndFit(self.sizer)
+        self.SetMinSize((-1, 20))
+
 class Frame(wx.Frame):
     def __init__(self, contexts):
         style = wx.DEFAULT_FRAME_STYLE & ~wx.RESIZE_BORDER & ~wx.MAXIMIZE_BOX
         super(Frame, self).__init__(None, -1, 'FlyCapture', style=style)
+        self.contexts = contexts
+        self.controlpanel = ControlPanel(self)
+        self.controlpanel.auto_button.Bind(wx.EVT_CHECKBOX, self.OnButton)
+        self.controlpanel.onoff_button.Bind(wx.EVT_CHECKBOX, self.OnButton)        
+        self.mainsizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         font = ImageFont.truetype("arial.ttf", 20)
         self.panel_count = len(contexts)
@@ -76,7 +93,9 @@ class Frame(wx.Frame):
             p = Panel(self, context, index, font)
             self.sizer.Add(p, 1, wx.EXPAND)
             self.panels.append(p)
-        self.SetSizerAndFit(self.sizer)
+        self.mainsizer.Add(self.sizer, 1, wx.EXPAND)
+        self.mainsizer.Add(self.controlpanel, 0, wx.EXPAND)
+        self.SetSizerAndFit(self.mainsizer)
         self.Bind(wx.EVT_CLOSE, self.OnClose)        
     def check_size(self, size):
         w,h = size
@@ -88,7 +107,20 @@ class Frame(wx.Frame):
         for p in self.panels:
             p.Destroy()
         event.Skip()
+    def OnButton(self, event):
+        for context, sn in self.contexts:    
+            p = context.GetCameraPropertyEx(pyfly1.FCProperty.AUTO_EXPOSURE)
+            auto, on_off = self.controlpanel.auto_button.GetValue(), self.controlpanel.onoff_button.GetValue()
+            context.SetCameraPropertyEx(pyfly1.FCProperty.AUTO_EXPOSURE, 
+                                        one_push = False,
+                                        on_off = on_off,
+                                        auto = auto,
+                                        a=p.a,
+                                        b=p.b)    
 
+        
+        
+        
 def main():    
     video_mode = FCVideoMode._1280x960Y8
     frame_rate = FCFrameRate._15
