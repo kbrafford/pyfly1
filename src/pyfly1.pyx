@@ -7,6 +7,7 @@
 .. moduleauthor:: Keith Brafford
 """
 from libc.stdlib cimport malloc, free
+from collections import namedtuple
 import time      
 import numpy
 cimport numpy as np
@@ -322,7 +323,6 @@ class ContextPair(object):
         self.left.Destroy()
         self.right.Destroy()
 
-        
     def GrabImageNP(self, transpose = None, bypass = False):
         left = self.left.GrabImageNP(bypass = bypass)
         right = self.right.GrabImageNP(bypass = bypass)
@@ -338,7 +338,6 @@ class ContextPair(object):
                 left = self.left.GrabImageNP(bypass = bypass)
 
         return left, right
-
 
     def GrabImagePIL(self, transpose = None, bypass = False):
         left = self.left.GrabImagePIL(bypass = bypass)
@@ -384,7 +383,6 @@ class ContextPair(object):
         self.right.SetCameraPropertyEx(key, one_push=one_push, on_off=on_off, auto=auto, a= a, b=b)
         
 
-                            
 # Context Functions
 cdef class Context(object):
     cdef FlyCaptureContext _context
@@ -448,25 +446,23 @@ cdef class Context(object):
         #return image
         return None
 
-    def GetCameraPropertyEx(self, FlyCaptureProperty key):
-        cdef int one_push_i
-        cdef int on_off_i
-        cdef int auto_i
+    def GetCameraPropertyEx(self, FlyCaptureProperty key):    
+        cdef bint one_push_i
+        cdef bint on_off_i
+        cdef bint auto_i
         cdef int a 
         cdef int b
 
         errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push_i, &on_off_i, &auto_i, &a, &b))
 
-        one_push = one_push_i != 0
-        on_off = on_off_i != 0
-        auto = auto_i != 0
+        one_push = one_push_i
+        on_off = on_off_i
+        auto = auto_i
 
-        from collections import namedtuple
         Property = namedtuple("Property", "one_push on_off auto a b")
         return Property(one_push, on_off, auto, a, b)
 
     def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None, a=-1, b=-1):
-
         cdef int one_push_i
         cdef int on_off_i
         cdef int auto_i
@@ -517,6 +513,7 @@ cdef class Context(object):
         cdef bytes py_string
         cdef unsigned char *convert_buffer
         import numpy as np
+        dimension = 1
 
         # grab the image
         stopwatch = Stopwatch()
@@ -553,6 +550,7 @@ cdef class Context(object):
                 
                 # perform the creation of the Numpy Array
                 A = numpy.frombuffer(converted.pData[:size],dtype='uint32')
+                #dimension = 3
 
                 # free the temp buffer            
                 free(convert_buffer)
@@ -571,7 +569,7 @@ cdef class Context(object):
 
         post_time = stopwatch.elapsed()
 
-        return ImageReturnType.NP(A.reshape((image.iRows, image.iCols )), timestamp, acq_time, post_time)
+        return ImageReturnType.NP(A.reshape((image.iRows, image.iCols, dimension)), timestamp, acq_time, post_time)
 
     def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
@@ -756,4 +754,35 @@ cdef class Context(object):
         post_time = stopwatch.elapsed()
 
         return ImageReturnType.CV(cv_image, timestamp, acq_time, post_time)
+
+    def set_lock_exposure(self, value):
+        self.SetCameraPropertyEx(FCProperty.SHUTTER, 
+                                 one_push = False, on_off = not value, 
+                                 auto = not value, a=-1, b=-1)
+        self.SetCameraPropertyEx(FCProperty.GAIN, 
+                                 one_push = False, on_off = not value, 
+                                 auto = not value, a=-1, b=-1)        
+        self.SetCameraPropertyEx(FCProperty.AUTO_EXPOSURE, 
+                                 one_push = False, on_off = not value, 
+                                 auto = not value, a=-1, b=-1)
+
+    def get_lock_exposure(self):
+        return self.GetCameraPropertyEx(FCProperty.AUTO_EXPOSURE)
+
+    property lock_exposure:
+        """Lock Exposure"""
+
+        def __get__(self):
+            return self.GetCameraPropertyEx(FCProperty.AUTO_EXPOSURE)
+
+        def __set__(self, value):
+            self.SetCameraPropertyEx(FCProperty.SHUTTER, 
+                                     one_push = False, on_off = not value, 
+                                     auto = not value, a=-1, b=-1)
+            self.SetCameraPropertyEx(FCProperty.GAIN, 
+                                     one_push = False, on_off = not value, 
+                                     auto = not value, a=-1, b=-1)        
+            self.SetCameraPropertyEx(FCProperty.AUTO_EXPOSURE, 
+                                     one_push = False, on_off = not value, 
+                                     auto = not value, a=-1, b=-1)
 
