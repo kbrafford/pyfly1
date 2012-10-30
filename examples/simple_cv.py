@@ -28,7 +28,7 @@ def main():
     for i in range(10):
         start_time = time.clock()    
         print "grabbing another image (Bypass == True)"    
-        cvimage, timestamp = context.GrabImageCV(bypass = True)
+        cvimage, timestamp = context.GrabImageCV(bypass = False, grayscale = True)
         duration = time.clock() - start_time
         print "image acquired in %.5fms" % (duration * 1000.0)
 

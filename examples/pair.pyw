@@ -77,8 +77,11 @@ class Frame(wx.Frame):
             pass
 
     def create_bitmaps(self):
-        left, right, time_left, time_right = self.context.GrabImagePIL()
+        (left_image, left_timestamp, left_acq_time, left_post_time),(right_image, right_timestamp, right_acq_time, right_post_time) = self.context.GrabImagePIL()
 
+        left, right = left_image, right_image
+        time_left, time_right = left_acq_time, right_acq_time
+        
         left = left.resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
         right = right.resize((int(1280/self.panel_count), int(960/self.panel_count)), Image.NEAREST)
 

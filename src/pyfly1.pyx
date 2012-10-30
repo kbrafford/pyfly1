@@ -10,6 +10,8 @@ from libc.stdlib cimport malloc, free
 from collections import namedtuple
 import time      
 import numpy
+import shelve
+
 cimport numpy as np
 from collections import namedtuple
 
@@ -300,9 +302,47 @@ class ContextPair(object):
     def SetThreshold(cls, threshold):
         cls.THRESHOLD = threshold
 
-    def __init__(self):
-        self.left = Context.from_index(1)
-        self.right = Context.from_index(0)
+    def __init__(self, cache_name=None):
+        self._cache = shelve.open(cache_name if cache_name else "pyflycache")
+        leftsn = self._cache.get("leftsn", None)
+        rightsn = self._cache.get("sightsn", None)
+        
+        self.left, self.right = None, None
+        cam_info_list = get_camera_information()
+        
+        if len(cam_info_list) < 2:
+            self._cache.close()
+            raise ValueError("Not enough cameras for a pair context")
+
+        # find the left cam
+        claimed_cameras = []
+        my_cam_name = "left"        
+        for i, info in enumerate(cam_info_list):
+            if info["SerialNumber"] == leftsn:
+                setattr(self, my_cam_name, Context.from_index(i))
+                claimed_cameras.append(i)
+                
+        my_cam_name = "right"
+        for i, info in enumerate(cam_info_list):
+            if info["SerialNumber"] == rightsn:
+                setattr(self, my_cam_name, Context.from_index(i))
+                claimed_cameras.append(i)
+
+        claimed_cameras = set(claimed_cameras)
+        for my_cam_name in ("left", "right"):
+            if getattr(self, my_cam_name) == None:
+                for i in range(len(cam_info_list)):
+                    if i not in claimed_cameras:
+                        setattr(self, my_cam_name, Context.from_index(i))
+                        sn = cam_info_list[i]["SerialNumber"]
+                        self._cache[my_cam_name + "sn"] = sn
+
+        self._cache.close()
+
+        if self.left == None or self.right == None:
+            raise ValueError("Not enough cameras for a pair context")
+
+        
 
     def SetColorProcessingMethod(self, method):
         self.left.SetColorProcessingMethod(method)
@@ -320,6 +360,9 @@ class ContextPair(object):
         self.Destroy()
 
     def Destroy(self):
+        # make sure the cache shelve is synced properly
+        self._cache.close()
+
         self.left.Destroy()
         self.right.Destroy()
 
