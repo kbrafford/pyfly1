@@ -302,10 +302,14 @@ class ContextPair(object):
     def SetThreshold(cls, threshold):
         cls.THRESHOLD = threshold
 
-    def __init__(self, cache_name=None):
-        self._cache = shelve.open(cache_name if cache_name else "pyflycache")
+    def __init__(self, preferred_left_sn = None, cache_name=None):
+        self._cache_name = cache_name if cache_name else "pyflycache"
+        self._cache = shelve.open(self._cache_name)
         leftsn = self._cache.get("leftsn", None)
         rightsn = self._cache.get("sightsn", None)
+        
+        # force a preferred left cam if they want one
+        leftsn = preferred_left_sn if preferred_left_sn else leftsn
         
         self.left, self.right = None, None
         cam_info_list = get_camera_information()
@@ -321,7 +325,7 @@ class ContextPair(object):
             if info["SerialNumber"] == leftsn:
                 setattr(self, my_cam_name, Context.from_index(i))
                 claimed_cameras.append(i)
-                
+
         my_cam_name = "right"
         for i, info in enumerate(cam_info_list):
             if info["SerialNumber"] == rightsn:
@@ -342,7 +346,15 @@ class ContextPair(object):
         if self.left == None or self.right == None:
             raise ValueError("Not enough cameras for a pair context")
 
+    def swap_cameras(self):
+        # swap the cache values
+        self._cache = shelve.open(self._cache_name)
+        leftsn, rightsn = self._cache["leftsn"], self._cache["rightsn"]
+        self._cache["leftsn"], self._cache["rightsn"] = rightsn, leftsn
+        self._cache.close()
         
+        # swap the camera instances
+        self.left, self.right = self.right, self.left        
 
     def SetColorProcessingMethod(self, method):
         self.left.SetColorProcessingMethod(method)
