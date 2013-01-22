@@ -7,11 +7,8 @@
 .. moduleauthor:: Keith Brafford
 """
 from libc.stdlib cimport malloc, free
-from collections import namedtuple
 import time      
 import numpy
-import shelve
-
 cimport numpy as np
 from collections import namedtuple
 
@@ -302,59 +299,18 @@ class ContextPair(object):
     def SetThreshold(cls, threshold):
         cls.THRESHOLD = threshold
 
-    def __init__(self, preferred_left_sn = None, cache_name=None):
-        self._cache_name = cache_name if cache_name else "pyflycache"
-        self._cache = shelve.open(self._cache_name)
-        leftsn = self._cache.get("leftsn", None)
-        rightsn = self._cache.get("sightsn", None)
-        
-        # force a preferred left cam if they want one
-        leftsn = preferred_left_sn if preferred_left_sn else leftsn
-        
-        self.left, self.right = None, None
+    def __init__(self, leftsn, rightsn):
         cam_info_list = get_camera_information()
-        
         if len(cam_info_list) < 2:
-            self._cache.close()
             raise ValueError("Not enough cameras for a pair context")
-
-        # find the left cam
-        claimed_cameras = []
-        my_cam_name = "left"        
         for i, info in enumerate(cam_info_list):
+            print "Serial Number = %d \n" % info["SerialNumber"]
             if info["SerialNumber"] == leftsn:
-                setattr(self, my_cam_name, Context.from_index(i))
-                claimed_cameras.append(i)
-
-        my_cam_name = "right"
-        for i, info in enumerate(cam_info_list):
-            if info["SerialNumber"] == rightsn:
-                setattr(self, my_cam_name, Context.from_index(i))
-                claimed_cameras.append(i)
-
-        claimed_cameras = set(claimed_cameras)
-        for my_cam_name in ("left", "right"):
-            if getattr(self, my_cam_name) == None:
-                for i in range(len(cam_info_list)):
-                    if i not in claimed_cameras:
-                        setattr(self, my_cam_name, Context.from_index(i))
-                        sn = cam_info_list[i]["SerialNumber"]
-                        self._cache[my_cam_name + "sn"] = sn
-
-        self._cache.close()
-
-        if self.left == None or self.right == None:
-            raise ValueError("Not enough cameras for a pair context")
-
-    def swap_cameras(self):
-        # swap the cache values
-        self._cache = shelve.open(self._cache_name)
-        leftsn, rightsn = self._cache["leftsn"], self._cache["rightsn"]
-        self._cache["leftsn"], self._cache["rightsn"] = rightsn, leftsn
-        self._cache.close()
-        
-        # swap the camera instances
-        self.left, self.right = self.right, self.left        
+                self.left = Context.from_index(i)
+            elif info["SerialNumber"] == rightsn:
+                self.right = Context.from_index(i)
+            else:
+                raise ValueError("Serial Number not found")
 
     def SetColorProcessingMethod(self, method):
         self.left.SetColorProcessingMethod(method)
@@ -372,12 +328,10 @@ class ContextPair(object):
         self.Destroy()
 
     def Destroy(self):
-        # make sure the cache shelve is synced properly
-        self._cache.close()
-
         self.left.Destroy()
         self.right.Destroy()
 
+        
     def GrabImageNP(self, transpose = None, bypass = False):
         left = self.left.GrabImageNP(bypass = bypass)
         right = self.right.GrabImageNP(bypass = bypass)
@@ -393,6 +347,7 @@ class ContextPair(object):
                 left = self.left.GrabImageNP(bypass = bypass)
 
         return left, right
+
 
     def GrabImagePIL(self, transpose = None, bypass = False):
         left = self.left.GrabImagePIL(bypass = bypass)
@@ -438,6 +393,7 @@ class ContextPair(object):
         self.right.SetCameraPropertyEx(key, one_push=one_push, on_off=on_off, auto=auto, a= a, b=b)
         
 
+                            
 # Context Functions
 cdef class Context(object):
     cdef FlyCaptureContext _context
@@ -501,23 +457,25 @@ cdef class Context(object):
         #return image
         return None
 
-    def GetCameraPropertyEx(self, FlyCaptureProperty key):    
-        cdef bint one_push_i
-        cdef bint on_off_i
-        cdef bint auto_i
+    def GetCameraPropertyEx(self, FlyCaptureProperty key):
+        cdef int one_push_i
+        cdef int on_off_i
+        cdef int auto_i
         cdef int a 
         cdef int b
 
         errcheck(flycaptureGetCameraPropertyEx(self._context, key, &one_push_i, &on_off_i, &auto_i, &a, &b))
 
-        one_push = one_push_i
-        on_off = on_off_i
-        auto = auto_i
+        one_push = one_push_i != 0
+        on_off = on_off_i != 0
+        auto = auto_i != 0
 
+        from collections import namedtuple
         Property = namedtuple("Property", "one_push on_off auto a b")
         return Property(one_push, on_off, auto, a, b)
 
     def SetCameraPropertyEx(self, FlyCaptureProperty key, one_push=None, on_off=None, auto=None, a=-1, b=-1):
+
         cdef int one_push_i
         cdef int on_off_i
         cdef int auto_i
@@ -568,7 +526,6 @@ cdef class Context(object):
         cdef bytes py_string
         cdef unsigned char *convert_buffer
         import numpy as np
-        dimension = 1
 
         # grab the image
         stopwatch = Stopwatch()
@@ -605,7 +562,6 @@ cdef class Context(object):
                 
                 # perform the creation of the Numpy Array
                 A = numpy.frombuffer(converted.pData[:size],dtype='uint32')
-                #dimension = 3
 
                 # free the temp buffer            
                 free(convert_buffer)
@@ -624,7 +580,7 @@ cdef class Context(object):
 
         post_time = stopwatch.elapsed()
 
-        return ImageReturnType.NP(A.reshape((image.iRows, image.iCols, dimension)), timestamp, acq_time, post_time)
+        return ImageReturnType.NP(A.reshape((image.iRows, image.iCols )), timestamp, acq_time, post_time)
 
     def GrabImagePIL(self, transpose = None, bypass = False):
         import Image as PILImage
@@ -809,35 +765,4 @@ cdef class Context(object):
         post_time = stopwatch.elapsed()
 
         return ImageReturnType.CV(cv_image, timestamp, acq_time, post_time)
-
-    def set_lock_exposure(self, value):
-        self.SetCameraPropertyEx(FCProperty.SHUTTER, 
-                                 one_push = False, on_off = not value, 
-                                 auto = not value, a=-1, b=-1)
-        self.SetCameraPropertyEx(FCProperty.GAIN, 
-                                 one_push = False, on_off = not value, 
-                                 auto = not value, a=-1, b=-1)        
-        self.SetCameraPropertyEx(FCProperty.AUTO_EXPOSURE, 
-                                 one_push = False, on_off = not value, 
-                                 auto = not value, a=-1, b=-1)
-
-    def get_lock_exposure(self):
-        return self.GetCameraPropertyEx(FCProperty.AUTO_EXPOSURE)
-
-    property lock_exposure:
-        """Lock Exposure"""
-
-        def __get__(self):
-            return self.GetCameraPropertyEx(FCProperty.AUTO_EXPOSURE)
-
-        def __set__(self, value):
-            self.SetCameraPropertyEx(FCProperty.SHUTTER, 
-                                     one_push = False, on_off = not value, 
-                                     auto = not value, a=-1, b=-1)
-            self.SetCameraPropertyEx(FCProperty.GAIN, 
-                                     one_push = False, on_off = not value, 
-                                     auto = not value, a=-1, b=-1)        
-            self.SetCameraPropertyEx(FCProperty.AUTO_EXPOSURE, 
-                                     one_push = False, on_off = not value, 
-                                     auto = not value, a=-1, b=-1)
 
