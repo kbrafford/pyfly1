@@ -458,9 +458,9 @@ cdef class Context(object):
         return None
 
     def GetCameraPropertyEx(self, FlyCaptureProperty key):
-        cdef int one_push_i
-        cdef int on_off_i
-        cdef int auto_i
+        cdef bint one_push_i
+        cdef bint on_off_i
+        cdef bint auto_i
         cdef int a 
         cdef int b
 
